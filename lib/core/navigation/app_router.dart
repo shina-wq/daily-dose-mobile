@@ -7,6 +7,7 @@ import '../../features/auth/screens/landing_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/health_log/screens/health_log_screen.dart';
 import '../../features/medications/screens/medications_screen.dart';
+import '../../features/medications/screens/add_medication_screen.dart';
 import '../../features/onboarding/screens/onboarding_flow_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
@@ -23,6 +24,7 @@ class AppRouter {
   static const String onboardingRoute = '/onboarding';
   static const String forgotPasswordRoute = '/forgot-password';
   static const String medicationsRoute = '/medications';
+  static const String addMedicationRoute = '/medications/add';
   static const String appointmentsRoute = '/appointments';
   static const String healthLogRoute = '/health-log';
   static const String aiChatRoute = '/ai-chat';
@@ -68,6 +70,11 @@ class AppRouter {
       case medicationsRoute:
         return MaterialPageRoute(
           builder: (_) => const MedicationsScreen(),
+        );
+
+      case addMedicationRoute:
+        return MaterialPageRoute(
+          builder: (_) => const AddMedicationScreen(),
         );
 
       case appointmentsRoute:
