@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../models/medication_model.dart';
+import '../providers/medication_provider.dart';
 
-class AddMedicationScreen extends StatefulWidget {
+class AddMedicationScreen extends ConsumerStatefulWidget {
 	const AddMedicationScreen({super.key});
 
 	@override
-	State<AddMedicationScreen> createState() => _AddMedicationScreenState();
+	ConsumerState<AddMedicationScreen> createState() => _AddMedicationScreenState();
 }
 
-class _AddMedicationScreenState extends State<AddMedicationScreen> {
+class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 	final TextEditingController _nameController = TextEditingController();
 	final TextEditingController _doseController = TextEditingController(text: '10');
-	final TextEditingController _frequencyController = TextEditingController(text: 'Every day');
+	final TextEditingController _reasonController = TextEditingController();
+	final TextEditingController _notesController = TextEditingController();
 
 	int _selectedFormIndex = 0;
 	String _selectedUnit = 'mg';
 	bool _smartReminders = true;
-	final List<String> _reminderTimes = ['8:00 AM'];
+	final List<String> _reminderTimes = ['08:00'];
+	bool _isLoading = false;
 
 	final List<_FormChoice> _forms = [
 		_FormChoice(icon: Icons.medication_outlined, label: 'Pill'),
@@ -32,7 +39,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 	void dispose() {
 		_nameController.dispose();
 		_doseController.dispose();
-		_frequencyController.dispose();
+		_reasonController.dispose();
+		_notesController.dispose();
 		super.dispose();
 	}
 
@@ -41,12 +49,100 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 			Navigator.of(context).pop();
 			return;
 		}
-
 		Navigator.of(context).pushReplacementNamed(AppRouter.medicationsRoute);
 	}
 
-	void _saveMedication() {
-		Navigator.of(context).pop();
+	Future<void> _saveMedication() async {
+		if (_nameController.text.isEmpty) {
+			ScaffoldMessenger.of(context).showSnackBar(
+				const SnackBar(content: Text('Please enter medication name')),
+			);
+			return;
+		}
+
+		if (_reminderTimes.isEmpty) {
+			ScaffoldMessenger.of(context).showSnackBar(
+				const SnackBar(content: Text('Please add at least one reminder time')),
+			);
+			return;
+		}
+
+		setState(() => _isLoading = true);
+
+		try {
+			final dosage = '${_doseController.text}$_selectedUnit';
+
+			// Determine frequency from reminder times
+			String frequency = 'once daily';
+			if (_reminderTimes.length == 2) {
+				frequency = 'twice daily';
+			} else if (_reminderTimes.length >= 3) {
+				frequency = '${_reminderTimes.length} times daily';
+			}
+
+			final auth = ref.read(authStateProvider);
+			final uid = auth.asData?.value?.uid;
+			if (uid == null) {
+				ScaffoldMessenger.of(context).showSnackBar(
+					const SnackBar(content: Text('You must be signed in to add a medication')),
+				);
+				return;
+			}
+
+			final medication = MedicationModel(
+				id: const Uuid().v4(),
+				uid: uid,
+				name: _nameController.text,
+				dosage: dosage,
+				frequency: frequency,
+				timeSlots: _reminderTimes,
+				reason: _reasonController.text.isEmpty ? null : _reasonController.text,
+				notes: _notesController.text.isEmpty ? null : _notesController.text,
+				startDate: DateTime.now(),
+				createdAt: DateTime.now(),
+			);
+
+			// Trigger the create action provider
+			await ref.read(createMedicationProvider(medication).future);
+
+			if (mounted) {
+				ScaffoldMessenger.of(context).showSnackBar(
+					const SnackBar(content: Text('Medication saved successfully')),
+				);
+				Navigator.of(context).pop();
+			}
+		} catch (e) {
+			if (mounted) {
+				ScaffoldMessenger.of(context).showSnackBar(
+					SnackBar(content: Text('Error: $e')),
+				);
+			}
+		} finally {
+			if (mounted) {
+				setState(() => _isLoading = false);
+			}
+		}
+	}
+
+	void _addReminderTime() {
+		showTimePicker(
+			context: context,
+			initialTime: TimeOfDay.now(),
+		).then((time) {
+			if (time != null) {
+				final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+				setState(() {
+					if (!_reminderTimes.contains(timeStr)) {
+						_reminderTimes.add(timeStr);
+						_reminderTimes.sort();
+					}
+				});
+			}
+		});
+	}
+
+	void _removeReminderTime(String time) {
+		setState(() => _reminderTimes.remove(time));
 	}
 
 	@override
@@ -68,7 +164,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 											Row(
 												children: [
 													IconButton(
-														onPressed: _goBack,
+														onPressed: _isLoading ? null : _goBack,
 														icon: const Icon(Icons.arrow_back),
 													),
 													const SizedBox(width: 4),
@@ -88,6 +184,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 											const SizedBox(height: 8),
 											TextField(
 												controller: _nameController,
+												enabled: !_isLoading,
 												decoration: _fieldDecoration(
 													hintText: 'e.g., Lisinopril',
 													prefixIcon: Icons.search,
@@ -101,12 +198,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 												child: ListView.separated(
 													scrollDirection: Axis.horizontal,
 													itemCount: _forms.length,
-													separatorBuilder: (_, __) => const SizedBox(width: 10),
+													separatorBuilder: (context, index) => const SizedBox(width: 10),
 													itemBuilder: (context, index) {
 														final form = _forms[index];
 														final selected = index == _selectedFormIndex;
 														return GestureDetector(
-															onTap: () => setState(() => _selectedFormIndex = index),
+															onTap: _isLoading
+																? null
+																: () => setState(() => _selectedFormIndex = index),
 															child: Container(
 																width: 76,
 																decoration: BoxDecoration(
@@ -145,6 +244,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 																const SizedBox(height: 8),
 																TextField(
 																	controller: _doseController,
+																	enabled: !_isLoading,
 																	keyboardType: TextInputType.number,
 																	decoration: _fieldDecoration(hintText: '10'),
 																),
@@ -159,16 +259,18 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 																const _Label('Unit'),
 																const SizedBox(height: 8),
 																DropdownButtonFormField<String>(
-																	value: _selectedUnit,
+																	initialValue: _selectedUnit,
 																	items: const [
 																		DropdownMenuItem(value: 'mg', child: Text('mg')),
 																		DropdownMenuItem(value: 'mcg', child: Text('mcg')),
 																		DropdownMenuItem(value: 'ml', child: Text('ml')),
 																	],
-																	onChanged: (value) {
-																		if (value == null) return;
-																		setState(() => _selectedUnit = value);
-																	},
+																	onChanged: _isLoading
+																		? null
+																		: (value) {
+																			if (value == null) return;
+																			setState(() => _selectedUnit = value);
+																		},
 																	decoration: _fieldDecoration(hintText: 'mg'),
 																),
 															],
@@ -177,55 +279,61 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 												],
 											),
 											const SizedBox(height: 16),
-											const _Label('Frequency'),
+											const _Label('Reason (Optional)'),
 											const SizedBox(height: 8),
-											DropdownButtonFormField<String>(
-												value: _frequencyController.text,
-												items: const [
-													DropdownMenuItem(value: 'Every day', child: Text('Every day')),
-													DropdownMenuItem(value: 'Twice daily', child: Text('Twice daily')),
-													DropdownMenuItem(value: 'Once weekly', child: Text('Once weekly')),
-												],
-												onChanged: (value) {
-													if (value == null) return;
-													setState(() => _frequencyController.text = value);
-												},
-												decoration: _fieldDecoration(hintText: 'Every day'),
+											TextField(
+												controller: _reasonController,
+												enabled: !_isLoading,
+												decoration: _fieldDecoration(
+													hintText: 'e.g., Blood pressure management',
+												),
 											),
 											const SizedBox(height: 16),
 											const _Label('Reminder Times'),
 											const SizedBox(height: 8),
-											Container(
-												padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-												decoration: BoxDecoration(
-													color: AppColors.white,
-													borderRadius: BorderRadius.circular(16),
-													border: Border.all(color: AppColors.border),
-												),
-												child: Row(
-													children: [
-														const Icon(Icons.wb_sunny_outlined, color: Color(0xFFF59E0B), size: 20),
-														const SizedBox(width: 10),
-														const Expanded(
-															child: Text(
-																'8:00 AM',
-																style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-															),
+											..._reminderTimes.map((time) {
+												final hour = int.parse(time.split(':')[0]);
+												return Padding(
+													padding: const EdgeInsets.only(bottom: 8),
+													child: Container(
+														padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+														decoration: BoxDecoration(
+															color: AppColors.white,
+															borderRadius: BorderRadius.circular(16),
+															border: Border.all(color: AppColors.border),
 														),
-														IconButton(
-															onPressed: () {},
-															icon: const Icon(Icons.close),
+														child: Row(
+															children: [
+																Icon(
+																	_getTimeIcon(hour),
+																	color: _getTimeColor(hour),
+																	size: 20,
+																),
+																const SizedBox(width: 10),
+																Expanded(
+																	child: Text(
+																		_formatTime(time),
+																		style: const TextStyle(
+																			fontSize: 16,
+																			fontWeight: FontWeight.w600,
+																		),
+																	),
+																),
+																IconButton(
+																	onPressed: _isLoading
+																		? null
+																		: () => _removeReminderTime(time),
+																	icon: const Icon(Icons.close),
+																	iconSize: 20,
+																),
+															],
 														),
-													],
-												),
-											),
+													),
+												);
+											}),
 											const SizedBox(height: 8),
 											OutlinedButton(
-												onPressed: () {
-												setState(() {
-													_reminderTimes.add('12:00 PM');
-												});
-												},
+												onPressed: _isLoading ? null : _addReminderTime,
 												style: OutlinedButton.styleFrom(
 													minimumSize: const Size(double.infinity, AppDimensions.buttonHeight),
 													foregroundColor: AppColors.primary,
@@ -233,6 +341,17 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 													shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
 												),
 												child: const Text('+ Add another time'),
+											),
+											const SizedBox(height: 16),
+											const _Label('Notes (Optional)'),
+											const SizedBox(height: 8),
+											TextField(
+												controller: _notesController,
+												enabled: !_isLoading,
+												maxLines: 3,
+												decoration: _fieldDecoration(
+													hintText: 'Add any notes about this medication...',
+												),
 											),
 											const SizedBox(height: 16),
 											Container(
@@ -262,8 +381,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 														),
 														Switch.adaptive(
 															value: _smartReminders,
-															onChanged: (value) => setState(() => _smartReminders = value),
-															activeColor: AppColors.primary,
+															onChanged: _isLoading
+																? null
+																: (value) => setState(() => _smartReminders = value),
+															activeThumbColor: AppColors.primary,
 														),
 													],
 												),
@@ -272,11 +393,19 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 											SizedBox(
 												height: AppDimensions.buttonHeight,
 												child: FilledButton(
-													onPressed: _saveMedication,
+													onPressed: _isLoading ? null : _saveMedication,
 													style: FilledButton.styleFrom(
-														shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+														shape: RoundedRectangleBorder(
+															borderRadius: BorderRadius.circular(18),
+														),
 													),
-													child: const Text('Save Medication'),
+													child: _isLoading
+														? const SizedBox(
+																width: 20,
+																height: 20,
+																child: CircularProgressIndicator(strokeWidth: 2),
+															)
+														: const Text('Save Medication'),
 												),
 											),
 										],
@@ -314,7 +443,32 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 			),
 		);
 	}
+
+	String _formatTime(String timeStr) {
+		final parts = timeStr.split(':');
+		final hour = int.parse(parts[0]);
+		final minute = parts[1];
+		final period = hour >= 12 ? 'PM' : 'AM';
+		final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+		return '$displayHour:$minute $period';
+	}
+
+	IconData _getTimeIcon(int hour) {
+		if (hour >= 5 && hour < 12) return Icons.wb_sunny_outlined;
+		if (hour >= 12 && hour < 17) return Icons.cloud_queue_outlined;
+		if (hour >= 17 && hour < 21) return Icons.nights_stay;
+		return Icons.nightlight_round;
+	}
+
+	Color _getTimeColor(int hour) {
+		if (hour >= 5 && hour < 12) return const Color(0xFFF59E0B);
+		if (hour >= 12 && hour < 17) return const Color(0xFFF97316);
+		if (hour >= 17 && hour < 21) return const Color(0xFF6366F1);
+		return const Color(0xFF64748B);
+	}
 }
+
+
 
 class _Label extends StatelessWidget {
 	const _Label(this.text);

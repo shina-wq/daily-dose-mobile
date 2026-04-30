@@ -75,13 +75,12 @@ class NotificationService {
 
       final notificationId = dose.id.hashCode;
       final message = 'Time to take ${dose.medicationName}';
-      final body = 'Dosage: ${dose.dosage}';
 
       // Schedule local notification
       await _flutterLocalNotificationsPlugin.zonedSchedule(
         id: notificationId,
         title: 'Medication Reminder',
-        body: '$message - $body',
+        body: message,
         scheduledDate: tz.TZDateTime.from(notificationTime, tz.local),
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
@@ -107,6 +106,7 @@ class NotificationService {
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exact,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
       );
 
       // Store notification in Firestore
@@ -117,7 +117,7 @@ class NotificationService {
         medicationName: dose.medicationName,
         type: NotificationType.reminder,
         title: 'Medication Reminder',
-        message: '$message - $body',
+        message: message,
         scheduledTime: notificationTime,
         isSent: true,
         sentTime: DateTime.now(),
@@ -127,7 +127,7 @@ class NotificationService {
 
       await _saveNotification(uid, notification);
     } catch (e) {
-      throw Exception('Failed to schedule medication reminder: $e');
+      print('Error scheduling medication reminder: $e');
     }
   }
 
@@ -148,10 +148,12 @@ class NotificationService {
 
       for (final doc in snapshot.docs) {
         final dose = MedicationDoseModel.fromMap(doc.data());
-        await scheduleMedicationReminder(uid, dose);
+        if (dose != null) {
+          await scheduleMedicationReminder(uid, dose);
+        }
       }
     } catch (e) {
-      throw Exception('Failed to schedule all pending reminders: $e');
+      print('Error scheduling all pending reminders: $e');
     }
   }
 
@@ -160,7 +162,7 @@ class NotificationService {
   /// Send notification for a missed dose
   Future<void> notifyMissedDose(String uid, MedicationDoseModel dose) async {
     try {
-      final notificationId = '${dose.id}_missed'.hashCode;
+      final notificationId = (dose.id + '_missed').hashCode;
       final message = '${dose.medicationName} was not taken at ${_formatTime(dose.scheduledTime)}';
 
       await _flutterLocalNotificationsPlugin.show(
@@ -203,7 +205,7 @@ class NotificationService {
 
       await _saveNotification(uid, notification);
     } catch (e) {
-      throw Exception('Failed to notify missed dose: $e');
+      print('Error notifying missed dose: $e');
     }
   }
 
@@ -218,7 +220,7 @@ class NotificationService {
     try {
       if (streakDays < 2) return; // Only notify for streaks of 2+ days
 
-      final notificationId = '${medicationName}_streak'.hashCode;
+      final notificationId = (medicationName + '_streak').hashCode;
       String message;
 
       if (streakDays == 2) {
@@ -268,7 +270,7 @@ class NotificationService {
 
       await _saveNotification(uid, notification);
     } catch (e) {
-      throw Exception('Failed to notify streak warning: $e');
+      print('Error notifying streak warning: $e');
     }
   }
 
@@ -323,7 +325,7 @@ class NotificationService {
 
       await _saveNotification(uid, notification);
     } catch (e) {
-      throw Exception('Failed to send adherence report: $e');
+      print('Error sending adherence report: $e');
     }
   }
 
@@ -342,7 +344,7 @@ class NotificationService {
           .doc(notification.id)
           .set(notification.toMap());
     } catch (e) {
-      throw Exception('Failed to save notification: $e');
+      print('Error saving notification: $e');
     }
   }
 
@@ -359,9 +361,11 @@ class NotificationService {
 
       return snapshot.docs
           .map((doc) => MedicationNotificationModel.fromMap(doc.data()))
+          .whereType<MedicationNotificationModel>()
           .toList();
     } catch (e) {
-      throw Exception('Failed to get notifications: $e');
+      print('Error getting notifications: $e');
+      return [];
     }
   }
 
@@ -378,9 +382,11 @@ class NotificationService {
 
       return snapshot.docs
           .map((doc) => MedicationNotificationModel.fromMap(doc.data()))
+          .whereType<MedicationNotificationModel>()
           .toList();
     } catch (e) {
-      throw Exception('Failed to get unread notifications: $e');
+      print('Error getting unread notifications: $e');
+      return [];
     }
   }
 
@@ -397,7 +403,7 @@ class NotificationService {
             'readTime': DateTime.now().toIso8601String(),
           });
     } catch (e) {
-      throw Exception('Failed to mark notification as read: $e');
+      print('Error marking notification as read: $e');
     }
   }
 
@@ -420,7 +426,7 @@ class NotificationService {
       }
       await batch.commit();
     } catch (e) {
-      throw Exception('Failed to mark all notifications as read: $e');
+      print('Error marking all notifications as read: $e');
     }
   }
 
@@ -434,7 +440,7 @@ class NotificationService {
           .doc(notificationId)
           .delete();
     } catch (e) {
-      throw Exception('Failed to delete notification: $e');
+      print('Error deleting notification: $e');
     }
   }
 

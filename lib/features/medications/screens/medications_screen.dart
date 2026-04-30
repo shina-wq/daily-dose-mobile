@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../models/medication_dose_model.dart';
+import '../providers/medication_provider.dart';
 
-class MedicationsScreen extends StatelessWidget {
+class MedicationsScreen extends ConsumerWidget {
 	const MedicationsScreen({super.key});
 
 	@override
-	Widget build(BuildContext context) {
+	Widget build(BuildContext context, WidgetRef ref) {
+		final todaysDoses = ref.watch(todaysDosesProvider);
+		final overallAdherence = ref.watch(overallAdherenceProvider);
+
 		return Scaffold(
 			backgroundColor: AppColors.background,
 			body: SafeArea(
@@ -57,89 +63,35 @@ class MedicationsScreen extends StatelessWidget {
 												],
 											),
 											const SizedBox(height: 16),
-											Container(
-												padding: const EdgeInsets.all(14),
-												decoration: BoxDecoration(
-													color: AppColors.white,
-													borderRadius: BorderRadius.circular(18),
-													border: Border.all(color: AppColors.border),
+											// Weekly Adherence Card
+											overallAdherence.when(
+												data: (adherence) => _buildAdherenceCard(adherence),
+												loading: () => const SizedBox(
+													height: 120,
+													child: Center(child: CircularProgressIndicator()),
 												),
-												child: Column(
-													crossAxisAlignment: CrossAxisAlignment.start,
-													children: [
-														Row(
-															mainAxisAlignment: MainAxisAlignment.spaceBetween,
-															children: const [
-																Text(
-																	'Weekly Adherence',
-																	style: TextStyle(
-																		fontSize: 13,
-																		fontWeight: FontWeight.w700,
-																		color: AppColors.textPrimary,
-																	),
-																),
-																Text(
-																	'85%',
-																	style: TextStyle(
-																		fontSize: 13,
-																		fontWeight: FontWeight.w700,
-																		color: AppColors.secondary,
-																	),
-																),
-															],
-														),
-														const SizedBox(height: 12),
-														Row(
-															mainAxisAlignment: MainAxisAlignment.spaceBetween,
-															children: const [
-																_AdherenceDay(label: 'M', done: true),
-																_AdherenceDay(label: 'T', done: true),
-																_AdherenceDay(label: 'W', done: true),
-																_AdherenceDay(label: 'T', missed: true),
-																_AdherenceDay(label: 'F', active: true, dayNumber: '16'),
-																_AdherenceDay(label: 'S', dayNumber: '17'),
-																_AdherenceDay(label: 'S', dayNumber: '18'),
-															],
-														),
-													],
+												error: (err, stack) => Container(
+													padding: const EdgeInsets.all(14),
+													decoration: BoxDecoration(
+														color: AppColors.white,
+														borderRadius: BorderRadius.circular(18),
+														border: Border.all(color: AppColors.border),
+													),
+													child: const Text('Unable to load adherence data'),
 												),
 											),
 											const SizedBox(height: 16),
-											const _MedicationGroupHeader(
-												icon: Icons.wb_sunny_outlined,
-												iconColor: Color(0xFFF59E0B),
-												title: 'Morning',
-												time: '8:00 AM',
-											),
-											const SizedBox(height: 10),
-											const _MedicationRow(
-												name: 'Levothyroxine',
-												description: '50mcg • 1 pill',
-												icon: Icons.check,
-												iconColor: Color(0xFF6EE7B7),
-												done: true,
-											),
-											const SizedBox(height: 16),
-											const _MedicationGroupHeader(
-												icon: Icons.nightlight_round,
-												iconColor: Color(0xFF6366F1),
-												title: 'Evening',
-												time: '8:00 PM',
-											),
-											const SizedBox(height: 10),
-											const _MedicationRow(
-												name: 'Metformin',
-												description: '500mg • 1 pill',
-												icon: Icons.link_rounded,
-												iconColor: AppColors.primary,
-												selected: true,
-											),
-											const SizedBox(height: 10),
-											const _MedicationRow(
-												name: 'Vitamin D3',
-												description: '2000 IU • 1 capsule',
-												icon: Icons.water_drop_outlined,
-												iconColor: Color(0xFF64748B),
+											// Today's Medications grouped by time
+											todaysDoses.when(
+												data: (doses) => _buildMedicationsList(doses),
+												loading: () => const SizedBox(
+													height: 200,
+													child: Center(child: CircularProgressIndicator()),
+												),
+												error: (err, stack) => Padding(
+													padding: const EdgeInsets.all(16),
+													child: Text('Error loading medications: $err'),
+												),
 											),
 										],
 									),
@@ -151,7 +103,329 @@ class MedicationsScreen extends StatelessWidget {
 			),
 		);
 	}
+
+	Widget _buildAdherenceCard(double adherence) {
+		return Container(
+			padding: const EdgeInsets.all(14),
+			decoration: BoxDecoration(
+				color: AppColors.white,
+				borderRadius: BorderRadius.circular(18),
+				border: Border.all(color: AppColors.border),
+			),
+			child: Column(
+				crossAxisAlignment: CrossAxisAlignment.start,
+				children: [
+					Row(
+						mainAxisAlignment: MainAxisAlignment.spaceBetween,
+						children: [
+							const Text(
+								'Overall Adherence',
+								style: TextStyle(
+									fontSize: 13,
+									fontWeight: FontWeight.w700,
+									color: AppColors.textPrimary,
+								),
+							),
+							Text(
+								'${adherence.toStringAsFixed(0)}%',
+								style: const TextStyle(
+									fontSize: 13,
+									fontWeight: FontWeight.w700,
+									color: AppColors.secondary,
+								),
+							),
+						],
+					),
+					const SizedBox(height: 12),
+					ClipRRect(
+						borderRadius: BorderRadius.circular(8),
+						child: LinearProgressIndicator(
+							value: adherence / 100,
+							minHeight: 8,
+							backgroundColor: const Color(0xFFF1F5F9),
+							valueColor: AlwaysStoppedAnimation<Color>(
+								adherence >= 75 ? AppColors.secondary : Color(0xFFF59E0B),
+							),
+						),
+					),
+				],
+			),
+		);
+	}
+
+	Widget _buildMedicationsList(List<MedicationDoseModel> doses) {
+		if (doses.isEmpty) {
+			return Padding(
+				padding: const EdgeInsets.all(16),
+				child: Text(
+					'No medications scheduled for today',
+					style: TextStyle(
+						fontSize: 14,
+						color: AppColors.textSecondary,
+					),
+				),
+			);
+		}
+
+		// Group doses by time slot
+		final Map<String, List<MedicationDoseModel>> groupedByTime = {};
+		for (final dose in doses) {
+			final timeStr = '${dose.scheduledTime.hour.toString().padLeft(2, '0')}:${dose.scheduledTime.minute.toString().padLeft(2, '0')}';
+			groupedByTime.putIfAbsent(timeStr, () => []).add(dose);
+		}
+
+		final widgets = <Widget>[];
+		groupedByTime.forEach((time, timeSlotDoses) {
+			widgets.add(
+				_MedicationGroupHeader(
+					icon: _getTimeIcon(timeSlotDoses.first.scheduledTime.hour),
+					iconColor: _getTimeColor(timeSlotDoses.first.scheduledTime.hour),
+					title: _getTimeLabel(timeSlotDoses.first.scheduledTime.hour),
+					time: time,
+				),
+			);
+			widgets.add(const SizedBox(height: 10));
+
+			for (int i = 0; i < timeSlotDoses.length; i++) {
+				final dose = timeSlotDoses[i];
+				widgets.add(
+					_MedicationRowWithDose(
+						dose: dose,
+					),
+				);
+				if (i < timeSlotDoses.length - 1) {
+					widgets.add(const SizedBox(height: 10));
+				}
+			}
+
+			widgets.add(const SizedBox(height: 16));
+		});
+
+		return Column(children: widgets);
+	}
+
+	IconData _getTimeIcon(int hour) {
+		if (hour >= 5 && hour < 12) return Icons.wb_sunny_outlined;
+		if (hour >= 12 && hour < 17) return Icons.cloud_queue_outlined;
+		if (hour >= 17 && hour < 21) return Icons.nights_stay;
+		return Icons.nightlight_round;
+	}
+
+	Color _getTimeColor(int hour) {
+		if (hour >= 5 && hour < 12) return const Color(0xFFF59E0B);
+		if (hour >= 12 && hour < 17) return const Color(0xFFF97316);
+		if (hour >= 17 && hour < 21) return const Color(0xFF6366F1);
+		return const Color(0xFF64748B);
+	}
+
+	String _getTimeLabel(int hour) {
+		if (hour >= 5 && hour < 12) return 'Morning';
+		if (hour >= 12 && hour < 17) return 'Afternoon';
+		if (hour >= 17 && hour < 21) return 'Evening';
+		return 'Night';
+	}
 }
+
+/// Widget to display a medication dose row with interactive status
+class _MedicationRowWithDose extends ConsumerWidget {
+	const _MedicationRowWithDose({
+		required this.dose,
+	});
+
+	final MedicationDoseModel dose;
+
+	@override
+	Widget build(BuildContext context, WidgetRef ref) {
+		final isDone = dose.status == DoseStatus.taken;
+		final isLate = dose.status == DoseStatus.late;
+		final isMissed = dose.status == DoseStatus.missed;
+		final isPending = dose.status == DoseStatus.pending;
+
+		return GestureDetector(
+			onTap: isPending
+				? () async {
+						showModalBottomSheet(
+							context: context,
+							shape: const RoundedRectangleBorder(
+								borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+							),
+							builder: (context) => _DoseActionBottomSheet(dose: dose),
+						);
+					}
+				: null,
+			child: Container(
+				padding: const EdgeInsets.all(12),
+				decoration: BoxDecoration(
+					color: AppColors.white,
+					borderRadius: BorderRadius.circular(16),
+					border: Border.all(
+						color: isPending ? AppColors.primary : AppColors.border,
+						width: isPending ? 1.5 : 1,
+					),
+					boxShadow: isPending
+							? [
+								BoxShadow(
+									color: AppColors.primary.withAlpha(10),
+									blurRadius: 14,
+									offset: const Offset(0, 6),
+								),
+							]
+							: null,
+				),
+				child: Row(
+					children: [
+						Container(
+							width: 38,
+							height: 38,
+							decoration: BoxDecoration(
+								shape: BoxShape.circle,
+								color: _getStatusColor(dose.status).withAlpha(24),
+							),
+							child: Icon(
+								_getStatusIcon(dose.status),
+								size: 18,
+								color: _getStatusColor(dose.status),
+							),
+						),
+						const SizedBox(width: 10),
+						Expanded(
+							child: Column(
+								crossAxisAlignment: CrossAxisAlignment.start,
+								children: [
+									Text(
+										dose.medicationName,
+										style: TextStyle(
+											fontSize: 15,
+											fontWeight: FontWeight.w700,
+											color: isDone || isMissed
+													? AppColors.textSecondary
+													: AppColors.textPrimary,
+										),
+									),
+									const SizedBox(height: 2),
+									Text(
+										dose.dosage,
+										style: const TextStyle(
+											fontSize: 13,
+											color: AppColors.textSecondary,
+										),
+									),
+								],
+							),
+						),
+						Container(
+							width: 24,
+							height: 24,
+							decoration: BoxDecoration(
+								shape: BoxShape.circle,
+								border: Border.all(
+									color: _getStatusColor(dose.status),
+									width: 1.5,
+								),
+								color: isDone || isLate || isMissed
+										? _getStatusColor(dose.status)
+										: AppColors.white,
+							),
+							child: isDone || isLate
+									? const Icon(Icons.check, size: 14, color: AppColors.white)
+									: isMissed
+										? const Icon(Icons.close, size: 14, color: AppColors.white)
+										: null,
+						),
+					],
+				),
+			),
+		);
+	}
+
+	IconData _getStatusIcon(DoseStatus status) {
+		switch (status) {
+			case DoseStatus.taken:
+				return Icons.check_circle;
+			case DoseStatus.late:
+				return Icons.schedule;
+			case DoseStatus.missed:
+				return Icons.close;
+			case DoseStatus.pending:
+				return Icons.schedule;
+		}
+	}
+
+	Color _getStatusColor(DoseStatus status) {
+		switch (status) {
+			case DoseStatus.taken:
+				return AppColors.secondary;
+			case DoseStatus.late:
+				return const Color(0xFFF59E0B);
+			case DoseStatus.missed:
+				return const Color(0xFFEF4444);
+			case DoseStatus.pending:
+				return AppColors.primary;
+		}
+	}
+}
+
+/// Bottom sheet for dose actions
+class _DoseActionBottomSheet extends ConsumerWidget {
+	const _DoseActionBottomSheet({
+		required this.dose,
+	});
+
+	final MedicationDoseModel dose;
+
+	@override
+	Widget build(BuildContext context, WidgetRef ref) {
+		return Container(
+			padding: const EdgeInsets.all(20),
+			child: Column(
+				mainAxisSize: MainAxisSize.min,
+				crossAxisAlignment: CrossAxisAlignment.start,
+				children: [
+					Text(
+						'${dose.medicationName} - ${dose.dosage}',
+						style: const TextStyle(
+							fontSize: 18,
+							fontWeight: FontWeight.w700,
+							color: AppColors.textPrimary,
+						),
+					),
+					const SizedBox(height: 8),
+					Text(
+						'Scheduled at ${dose.scheduledTime.hour.toString().padLeft(2, '0')}:${dose.scheduledTime.minute.toString().padLeft(2, '0')}',
+						style: const TextStyle(
+							fontSize: 14,
+							color: AppColors.textSecondary,
+						),
+					),
+					const SizedBox(height: 24),
+					SizedBox(
+						width: double.infinity,
+						child: FilledButton(
+							onPressed: () async {
+								await ref.read(markDoseTakenProvider(dose.id).future);
+								if (context.mounted) Navigator.of(context).pop();
+							},
+							child: const Text('Mark as Taken'),
+						),
+					),
+					const SizedBox(height: 12),
+					SizedBox(
+						width: double.infinity,
+						child: OutlinedButton(
+							onPressed: () async {
+								await ref.read(markDoseMissedProvider(dose.id).future);
+								if (context.mounted) Navigator.of(context).pop();
+							},
+							child: const Text('Mark as Missed'),
+						),
+					),
+				],
+			),
+		);
+	}
+}
+
+// ==================== HELPER WIDGETS ====================
 
 class _AdherenceDay extends StatelessWidget {
 	const _AdherenceDay({
@@ -241,89 +515,4 @@ class _MedicationGroupHeader extends StatelessWidget {
 	}
 }
 
-class _MedicationRow extends StatelessWidget {
-	const _MedicationRow({
-		required this.name,
-		required this.description,
-		required this.icon,
-		required this.iconColor,
-		this.done = false,
-		this.selected = false,
-	});
 
-	final String name;
-	final String description;
-	final IconData icon;
-	final Color iconColor;
-	final bool done;
-	final bool selected;
-
-	@override
-	Widget build(BuildContext context) {
-		return Container(
-			padding: const EdgeInsets.all(12),
-			decoration: BoxDecoration(
-				color: AppColors.white,
-				borderRadius: BorderRadius.circular(16),
-				border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 1.5 : 1),
-				boxShadow: selected
-						? [
-							BoxShadow(
-								color: AppColors.primary.withAlpha(10),
-								blurRadius: 14,
-								offset: const Offset(0, 6),
-							),
-						]
-						: null,
-			),
-			child: Row(
-				children: [
-					Container(
-						width: 38,
-						height: 38,
-						decoration: BoxDecoration(
-							shape: BoxShape.circle,
-							color: iconColor.withAlpha(24),
-						),
-						child: Icon(icon, size: 18, color: iconColor),
-					),
-					const SizedBox(width: 10),
-					Expanded(
-						child: Column(
-							crossAxisAlignment: CrossAxisAlignment.start,
-							children: [
-								Text(
-									name,
-									style: TextStyle(
-										fontSize: 15,
-										fontWeight: FontWeight.w700,
-										color: done ? AppColors.textSecondary : AppColors.textPrimary,
-									),
-								),
-								const SizedBox(height: 2),
-								Text(
-									description,
-									style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-								),
-							],
-						),
-					),
-					Container(
-						width: 24,
-						height: 24,
-						decoration: BoxDecoration(
-							shape: BoxShape.circle,
-							border: Border.all(color: selected ? AppColors.primary : AppColors.textSecondary, width: 1.5),
-							color: selected ? AppColors.white : AppColors.transparent,
-						),
-						child: done
-							? const Icon(Icons.check, size: 14, color: AppColors.secondary)
-							: selected
-								? const Icon(Icons.radio_button_checked, size: 14, color: AppColors.primary)
-								: null,
-					),
-				],
-			),
-		);
-	}
-}
