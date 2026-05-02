@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../models/medication_model.dart';
@@ -29,10 +30,10 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 	bool _isLoading = false;
 
 	final List<_FormChoice> _forms = [
-		_FormChoice(icon: Icons.medication_outlined, label: 'Pill'),
-		_FormChoice(icon: Icons.circle_outlined, label: 'Capsule'),
-		_FormChoice(icon: Icons.water_drop_outlined, label: 'Liquid'),
-		_FormChoice(icon: Icons.medical_services_outlined, label: 'Inject'),
+		_FormChoice(icon: AppIcons.medication_outlined, label: 'Pill'),
+		_FormChoice(icon: AppIcons.circle_outlined, label: 'Capsule'),
+		_FormChoice(icon: AppIcons.water_drop_outlined, label: 'Liquid'),
+		_FormChoice(icon: AppIcons.medical_services_outlined, label: 'Inject'),
 	];
 
 	@override
@@ -165,7 +166,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 												children: [
 													IconButton(
 														onPressed: _isLoading ? null : _goBack,
-														icon: const Icon(Icons.arrow_back),
+														icon: const Icon(AppIcons.arrow_back),
 													),
 													const SizedBox(width: 4),
 													const Text(
@@ -187,7 +188,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 												enabled: !_isLoading,
 												decoration: _fieldDecoration(
 													hintText: 'e.g., Lisinopril',
-													prefixIcon: Icons.search,
+													prefixIcon: AppIcons.search,
 												),
 											),
 											const SizedBox(height: 18),
@@ -323,7 +324,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 																	onPressed: _isLoading
 																		? null
 																		: () => _removeReminderTime(time),
-																	icon: const Icon(Icons.close),
+																icon: const Icon(AppIcons.close),
 																	iconSize: 20,
 																),
 															],
@@ -454,10 +455,10 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 	}
 
 	IconData _getTimeIcon(int hour) {
-		if (hour >= 5 && hour < 12) return Icons.wb_sunny_outlined;
-		if (hour >= 12 && hour < 17) return Icons.cloud_queue_outlined;
-		if (hour >= 17 && hour < 21) return Icons.nights_stay;
-		return Icons.nightlight_round;
+		if (hour >= 5 && hour < 12) return AppIcons.wb_sunny_outlined;
+		if (hour >= 12 && hour < 17) return AppIcons.cloud_queue_outlined;
+		if (hour >= 17 && hour < 21) return AppIcons.nights_stay;
+		return AppIcons.nightlight_round;
 	}
 
 	Color _getTimeColor(int hour) {

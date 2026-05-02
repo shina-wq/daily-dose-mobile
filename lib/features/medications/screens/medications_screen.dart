@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/navigation/app_router.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/medication_dose_model.dart';
 import '../providers/medication_provider.dart';
@@ -54,7 +55,7 @@ class MedicationsScreen extends ConsumerWidget {
 																color: AppColors.white,
 															),
 															child: const Icon(
-																Icons.add,
+																AppIcons.add,
 																size: 20,
 																color: AppColors.primary,
 															),
@@ -205,10 +206,10 @@ class MedicationsScreen extends ConsumerWidget {
 	}
 
 	IconData _getTimeIcon(int hour) {
-		if (hour >= 5 && hour < 12) return Icons.wb_sunny_outlined;
-		if (hour >= 12 && hour < 17) return Icons.cloud_queue_outlined;
-		if (hour >= 17 && hour < 21) return Icons.nights_stay;
-		return Icons.nightlight_round;
+		if (hour >= 5 && hour < 12) return AppIcons.wb_sunny_outlined;
+		if (hour >= 12 && hour < 17) return AppIcons.cloud_queue_outlined;
+		if (hour >= 17 && hour < 21) return AppIcons.nights_stay;
+		return AppIcons.nightlight_round;
 	}
 
 	Color _getTimeColor(int hour) {
@@ -327,9 +328,9 @@ class _MedicationRowWithDose extends ConsumerWidget {
 										: AppColors.white,
 							),
 							child: isDone || isLate
-									? const Icon(Icons.check, size: 14, color: AppColors.white)
+									? const Icon(AppIcons.check, size: 14, color: AppColors.white)
 									: isMissed
-										? const Icon(Icons.close, size: 14, color: AppColors.white)
+										? const Icon(AppIcons.close, size: 14, color: AppColors.white)
 										: null,
 						),
 					],
@@ -341,13 +342,13 @@ class _MedicationRowWithDose extends ConsumerWidget {
 	IconData _getStatusIcon(DoseStatus status) {
 		switch (status) {
 			case DoseStatus.taken:
-				return Icons.check_circle;
+				return AppIcons.check_circle;
 			case DoseStatus.late:
-				return Icons.schedule;
+				return AppIcons.schedule;
 			case DoseStatus.missed:
-				return Icons.close;
+				return AppIcons.close;
 			case DoseStatus.pending:
-				return Icons.schedule;
+				return AppIcons.schedule;
 		}
 	}
 

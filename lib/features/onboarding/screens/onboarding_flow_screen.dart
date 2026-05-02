@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 
 import '../../../core/navigation/app_router.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 
@@ -40,28 +41,28 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   ];
 
   final List<_ConditionItem> _conditions = [
-    _ConditionItem(name: 'Type 2 Diabetes', icon: Icons.monitor_heart_outlined, selected: true),
-    _ConditionItem(name: 'Hypertension', icon: Icons.favorite_border_rounded),
-    _ConditionItem(name: 'Hypothyroidism', icon: Icons.water_drop_outlined, selected: true),
-    _ConditionItem(name: 'Asthma', icon: Icons.air_rounded),
-    _ConditionItem(name: 'Rheumatoid Arthritis', icon: Icons.timeline_rounded),
+    _ConditionItem(name: 'Type 2 Diabetes', icon: AppIcons.monitor_heart_outlined, selected: true),
+    _ConditionItem(name: 'Hypertension', icon: AppIcons.favorite_border_rounded),
+    _ConditionItem(name: 'Hypothyroidism', icon: AppIcons.water_drop_outlined, selected: true),
+    _ConditionItem(name: 'Asthma', icon: AppIcons.air_rounded),
+    _ConditionItem(name: 'Rheumatoid Arthritis', icon: AppIcons.timeline_rounded),
   ];
 
   final List<_CommunicationStyleItem> _communicationStyles = const [
     _CommunicationStyleItem(
       title: 'Clinical & Direct',
       subtitle: 'Focuses on data, facts, and straightforward advice.',
-      icon: Icons.assignment_outlined,
+      icon: AppIcons.assignment_outlined,
     ),
     _CommunicationStyleItem(
       title: 'Empathetic & Supportive',
       subtitle: 'Gentle encouragement and warm guidance.',
-      icon: Icons.favorite_border_rounded,
+      icon: AppIcons.favorite_border_rounded,
     ),
     _CommunicationStyleItem(
       title: 'Coach & Motivator',
       subtitle: 'Proactive, goal-oriented, and structured.',
-      icon: Icons.gps_fixed_rounded,
+      icon: AppIcons.gps_fixed_rounded,
     ),
   ];
 

@@ -1,26 +1,73 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../services/appointment_service.dart';
+import '../models/appointment_model.dart';
 
 class AddAppointmentScreen extends StatefulWidget {
-  const AddAppointmentScreen({super.key});
+  const AddAppointmentScreen({super.key, this.appointment});
+
+  final AppointmentModel? appointment;
 
   @override
   State<AddAppointmentScreen> createState() => _AddAppointmentScreenState();
 }
 
 class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
+  final _doctorNameController = TextEditingController();
+  final _specialtyController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _meetingLinkController = TextEditingController();
+  final _reasonController = TextEditingController();
+
+  DateTime _selectedDateTime = DateTime.now().add(const Duration(days: 1));
   bool _isTelehealth = true;
   bool _aiSummaryEnabled = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final appointment = widget.appointment;
+    if (appointment != null) {
+      _doctorNameController.text = appointment.doctorName;
+      _specialtyController.text = appointment.specialty;
+      _locationController.text = appointment.location ?? '';
+      _meetingLinkController.text = appointment.meetingLink ?? '';
+      _reasonController.text = appointment.reason;
+      _selectedDateTime = appointment.appointmentDateTime;
+      _isTelehealth = appointment.visitType.toLowerCase().contains('tele');
+      _aiSummaryEnabled = appointment.isAiSummaryEnabled;
+    } else {
+      _doctorNameController.text = 'Dr. Robert Smith';
+      _specialtyController.text = 'Primary Care';
+      _meetingLinkController.text = 'zoom.us/j/123456789';
+      _reasonController.text = 'Routine check-up for thyroid levels.';
+    }
+  }
+
+  @override
+  void dispose() {
+    _doctorNameController.dispose();
+    _specialtyController.dispose();
+    _locationController.dispose();
+    _meetingLinkController.dispose();
+    _reasonController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.appointment != null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'New Appointment',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        title: Text(
+          isEditing ? 'Edit Appointment' : 'New Appointment',
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       body: SafeArea(
@@ -37,39 +84,18 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                     children: [
                       const _FieldLabel('Doctor or Provider'),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
-                        ),
-                        decoration: _fieldDecoration(),
-                        child: const Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 11,
-                              backgroundColor: Color(0xFFE8F0FF),
-                              child: Icon(
-                                Icons.person_outline_rounded,
-                                size: 14,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Dr. Robert Smith',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: AppColors.textSecondary,
-                            ),
-                          ],
-                        ),
+                      _TextFieldCard(
+                        controller: _doctorNameController,
+                        leadingIcon: Icons.person_outline_rounded,
+                        hintText: 'Dr. Robert Smith',
+                      ),
+                      const SizedBox(height: 16),
+                      const _FieldLabel('Specialty'),
+                      const SizedBox(height: 8),
+                      _TextFieldCard(
+                        controller: _specialtyController,
+                        leadingIcon: AppIcons.auto_awesome,
+                        hintText: 'Primary Care',
                       ),
                       const SizedBox(height: 16),
                       const _FieldLabel('Visit Type'),
@@ -90,8 +116,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                               icon: Icons.location_on_outlined,
                               label: 'In-Person',
                               selected: !_isTelehealth,
-                              onTap: () =>
-                                  setState(() => _isTelehealth = false),
+                              onTap: () => setState(() => _isTelehealth = false),
                             ),
                           ),
                         ],
@@ -107,70 +132,48 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Expanded(
-                            child: _InlineField(
-                              text: 'Oct 24, 2023',
+                          Expanded(
+                            child: _PickField(
+                              text: _formatDate(context, _selectedDateTime),
                               trailingIcon: Icons.calendar_today_outlined,
+                              onTap: _pickDate,
                             ),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
-                            child: _InlineField(
-                              text: '10:00 AM',
-                              trailingIcon: Icons.access_time_rounded,
+                          Expanded(
+                            child: _PickField(
+                              text: _formatTime(context, _selectedDateTime),
+                              trailingIcon: AppIcons.access_time_rounded,
+                              onTap: _pickTime,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const _FieldLabel('Meeting Link'),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
+                      if (_isTelehealth) ...[
+                        const _FieldLabel('Meeting Link'),
+                        const SizedBox(height: 8),
+                        _TextFieldCard(
+                          controller: _meetingLinkController,
+                          leadingIcon: Icons.link_rounded,
+                          hintText: 'zoom.us/j/123456789',
                         ),
-                        decoration: _fieldDecoration(),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.link_rounded,
-                              size: 18,
-                              color: AppColors.textSecondary,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'zoom.us/j/123456789',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ],
+                      ] else ...[
+                        const _FieldLabel('Location'),
+                        const SizedBox(height: 8),
+                        _TextFieldCard(
+                          controller: _locationController,
+                          leadingIcon: Icons.location_on_outlined,
+                          hintText: '123 Medical Center Blvd, Suite 400',
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 16),
                       const _FieldLabel('Reason for Visit'),
                       const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        decoration: _fieldDecoration(),
-                        child: const Text(
-                          'Routine check-up for thyroid levels.\n'
-                          'Experiencing slightly more fatigue\n'
-                          'than usual in the afternoons.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
+                      _TextFieldCard(
+                        controller: _reasonController,
+                        hintText: 'Describe the reason for the visit',
+                        maxLines: 4,
                       ),
                       const SizedBox(height: 14),
                       Container(
@@ -205,8 +208,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                                   ),
                                   SizedBox(height: 5),
                                   Text(
-                                    'Automatically prepare questions and health trends '
-                                    '24 hours before your visit.',
+                                    'Automatically prepare questions and health trends 24 hours before your visit.',
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       height: 1.35,
@@ -218,8 +220,14 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                             ),
                             Switch(
                               value: _aiSummaryEnabled,
-                              activeColor: AppColors.white,
-                              activeTrackColor: AppColors.primary,
+                              thumbColor: const WidgetStatePropertyAll(
+                                AppColors.white,
+                              ),
+                              trackColor: WidgetStateProperty.resolveWith(
+                                (states) => states.contains(WidgetState.selected)
+                                    ? AppColors.primary
+                                    : const Color(0xFFDDE7FF),
+                              ),
                               onChanged: (value) {
                                 setState(() => _aiSummaryEnabled = value);
                               },
@@ -229,19 +237,16 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Appointment saved.')),
-                          );
-                          Navigator.pop(context);
-                        },
+                        onPressed: _isSaving ? null : _saveAppointment,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text('Save Appointment'),
+                        child: Text(
+                          isEditing ? 'Update Appointment' : 'Save Appointment',
+                        ),
                       ),
                     ],
                   ),
@@ -254,12 +259,125 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
     );
   }
 
-  BoxDecoration _fieldDecoration() {
-    return BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.border),
+  Future<void> _pickDate() async {
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
+
+    if (selectedDate == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        _selectedDateTime.hour,
+        _selectedDateTime.minute,
+      );
+    });
+  }
+
+  Future<void> _pickTime() async {
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+    );
+
+    if (selectedTime == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        _selectedDateTime.year,
+        _selectedDateTime.month,
+        _selectedDateTime.day,
+        selectedTime.hour,
+        selectedTime.minute,
+      );
+    });
+  }
+
+  Future<void> _saveAppointment() async {
+    if (_doctorNameController.text.trim().isEmpty ||
+        _specialtyController.text.trim().isEmpty ||
+        _reasonController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a provider, specialty, and reason.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final saved = await AppointmentService.instance.saveAppointment(
+        appointment: AppointmentModel(
+          id: widget.appointment?.id ?? '',
+          doctorName: _doctorNameController.text.trim(),
+          specialty: _specialtyController.text.trim(),
+          appointmentDateTime: _selectedDateTime,
+          durationMinutes: widget.appointment?.durationMinutes ?? 30,
+          visitType: _isTelehealth ? 'Telehealth Visit' : 'In-Person Visit',
+          reason: _reasonController.text.trim(),
+          status: widget.appointment?.status ?? 'upcoming',
+          location: _isTelehealth ? null : _locationController.text.trim(),
+          meetingLink: _isTelehealth ? _meetingLinkController.text.trim() : null,
+          avatarLabel: _initials(_doctorNameController.text.trim()),
+          isAiSummaryEnabled: _aiSummaryEnabled,
+          completionNotes: widget.appointment?.completionNotes,
+          completedAt: widget.appointment?.completedAt,
+          createdAt: widget.appointment?.createdAt ?? DateTime.now().toUtc(),
+          updatedAt: DateTime.now().toUtc(),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.appointment == null
+                ? 'Appointment saved.'
+                : 'Appointment updated.',
+          ),
+        ),
+      );
+      Navigator.pop(context, saved);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save appointment: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  String _initials(String value) {
+    final parts = value.trim().split(RegExp(r'\s+'));
+    final initials = parts.take(2).map((part) => part.isEmpty ? '' : part[0]).join();
+    return initials.isEmpty ? 'AP' : initials.toUpperCase();
+  }
+
+  static String _formatDate(BuildContext context, DateTime dateTime) {
+    return MaterialLocalizations.of(context).formatMediumDate(dateTime);
+  }
+
+  static String _formatTime(BuildContext context, DateTime dateTime) {
+    return TimeOfDay.fromDateTime(dateTime).format(context);
   }
 }
 
@@ -276,6 +394,43 @@ class _FieldLabel extends StatelessWidget {
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
+      ),
+    );
+  }
+}
+
+class _TextFieldCard extends StatelessWidget {
+  const _TextFieldCard({
+    required this.controller,
+    required this.hintText,
+    this.leadingIcon,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final IconData? leadingIcon;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: hintText,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          prefixIcon: leadingIcon == null
+              ? null
+              : Icon(leadingIcon, size: 18, color: AppColors.textSecondary),
+        ),
       ),
     );
   }
@@ -333,34 +488,43 @@ class _VisitTypeChip extends StatelessWidget {
   }
 }
 
-class _InlineField extends StatelessWidget {
-  const _InlineField({required this.text, required this.trailingIcon});
+class _PickField extends StatelessWidget {
+  const _PickField({
+    required this.text,
+    required this.trailingIcon,
+    required this.onTap,
+  });
 
   final String text;
   final IconData trailingIcon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 15,
-                color: AppColors.textPrimary,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
-          ),
-          Icon(trailingIcon, size: 18, color: AppColors.textSecondary),
-        ],
+            Icon(trailingIcon, size: 18, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/navigation/app_router.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/auth_provider.dart';
 
@@ -100,36 +102,40 @@ class _DashboardHeader extends StatelessWidget {
 						],
 					),
 				),
-				Container(
-					width: 36,
-					height: 36,
-					decoration: BoxDecoration(
-						shape: BoxShape.circle,
-						border: Border.all(color: AppColors.border),
-						color: AppColors.white,
-					),
-					child: Stack(
-						children: [
-							const Center(
-								child: Icon(
-									Icons.notifications_none_rounded,
-									size: 20,
-									color: AppColors.textPrimary,
-								),
-							),
-							Positioned(
-								top: 8,
-								right: 9,
-								child: Container(
-									width: 6,
-									height: 6,
-									decoration: const BoxDecoration(
-										shape: BoxShape.circle,
-										color: AppColors.error,
+				InkWell(
+					borderRadius: BorderRadius.circular(18),
+					onTap: () => Navigator.of(context).pushNamed(AppRouter.notificationsRoute),
+					child: Container(
+						width: 36,
+						height: 36,
+						decoration: BoxDecoration(
+							shape: BoxShape.circle,
+							border: Border.all(color: AppColors.border),
+							color: AppColors.white,
+						),
+						child: Stack(
+							children: [
+								const Center(
+									child: Icon(
+										AppIcons.notifications_none_rounded,
+										size: 20,
+										color: AppColors.textPrimary,
+									),
+									),
+								Positioned(
+									top: 8,
+									right: 9,
+									child: Container(
+										width: 6,
+										height: 6,
+										decoration: const BoxDecoration(
+											shape: BoxShape.circle,
+											color: AppColors.error,
+										),
 									),
 								),
-							),
-						],
+							],
+						),
 					),
 				),
 			],
@@ -158,7 +164,7 @@ class _AiInsightCard extends StatelessWidget {
 								radius: 14,
 								backgroundColor: AppColors.primary,
 								child: Icon(
-									Icons.auto_awesome,
+									AppIcons.auto_awesome,
 									size: 15,
 									color: AppColors.white,
 								),
@@ -195,11 +201,11 @@ class _AiInsightCard extends StatelessWidget {
 						),
 						child: const Row(
 							children: [
-								Icon(
-									Icons.description_outlined,
-									size: 18,
-									color: AppColors.primary,
-								),
+									Icon(
+										AppIcons.description_outlined,
+										size: 18,
+										color: AppColors.primary,
+									),
 								SizedBox(width: 8),
 								Expanded(
 									child: Text(
@@ -211,11 +217,11 @@ class _AiInsightCard extends StatelessWidget {
 										),
 									),
 								),
-								Icon(
-									Icons.arrow_forward,
-									size: 18,
-									color: AppColors.primary,
-								),
+									Icon(
+										AppIcons.arrow_forward,
+										size: 18,
+										color: AppColors.primary,
+									),
 							],
 						),
 					),
@@ -373,7 +379,7 @@ class _MedicationsSection extends StatelessWidget {
 				_MedicationTile(
 					name: 'Levothyroxine',
 					details: '50mcg • Taken at 8:05 AM',
-					icon: Icons.check,
+					icon: AppIcons.check,
 					iconColor: Color(0xFF86D8C6),
 					surfaceColor: AppColors.white,
 					borderColor: AppColors.border,
@@ -383,7 +389,7 @@ class _MedicationsSection extends StatelessWidget {
 				_MedicationTile(
 					name: 'Metformin',
 					details: '500mg • 8:00 PM',
-					icon: Icons.link_rounded,
+					icon: AppIcons.link_rounded,
 					iconColor: AppColors.primary,
 					surfaceColor: AppColors.white,
 					borderColor: AppColors.primary,

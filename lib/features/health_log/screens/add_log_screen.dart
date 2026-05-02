@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../services/health_log_service.dart';
+import '../models/health_log_model.dart';
 
 class AddLogScreen extends StatefulWidget {
   const AddLogScreen({super.key});
@@ -10,9 +13,31 @@ class AddLogScreen extends StatefulWidget {
 }
 
 class _AddLogScreenState extends State<AddLogScreen> {
+  static const _symptoms = ['Fatigue', 'Headache', 'Nausea', 'Dizziness'];
+  static const _severityLevels = ['Mild', 'Moderate', 'Severe', 'Extreme'];
+  static const _triggerOptions = [
+    'Poor Sleep',
+    'Stress',
+    'Missed Meal',
+    'Dehydration',
+    'Weather',
+    'Physical Activity',
+  ];
+
   String _selectedSymptom = 'Fatigue';
   String _selectedSeverity = 'Moderate';
   final Set<String> _triggers = <String>{'Poor Sleep', 'Physical Activity'};
+  final _notesController = TextEditingController(
+    text: 'Felt unusually tired after lunch. Didn\'t sleep well last night after the late workout session.',
+  );
+  DateTime _selectedDateTime = DateTime.now();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +59,7 @@ class _AddLogScreenState extends State<AddLogScreen> {
                         children: [
                           IconButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.arrow_back_rounded),
+                            icon: const Icon(AppIcons.arrow_back_rounded),
                             splashRadius: 20,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -57,7 +82,7 @@ class _AddLogScreenState extends State<AddLogScreen> {
                       const SizedBox(height: 8),
                       _DropdownField(
                         value: _selectedSymptom,
-                        items: const ['Fatigue', 'Headache', 'Nausea', 'Dizziness'],
+                        items: _symptoms,
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() => _selectedSymptom = value);
@@ -73,18 +98,20 @@ class _AddLogScreenState extends State<AddLogScreen> {
                       ),
                       const SizedBox(height: 8),
                       Row(
-                        children: const [
+                        children: [
                           Expanded(
                             child: _InlinePickField(
-                              text: 'Today',
-                              trailingIcon: Icons.calendar_today_outlined,
+                              text: MaterialLocalizations.of(context).formatMediumDate(_selectedDateTime),
+                              trailingIcon: AppIcons.calendar_today_outlined,
+                              onTap: _pickDate,
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: _InlinePickField(
-                              text: '2:30 PM',
-                              trailingIcon: Icons.access_time_rounded,
+                              text: TimeOfDay.fromDateTime(_selectedDateTime).format(context),
+                              trailingIcon: AppIcons.access_time_rounded,
+                              onTap: _pickTime,
                             ),
                           ),
                         ],
@@ -94,38 +121,18 @@ class _AddLogScreenState extends State<AddLogScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Expanded(
-                            child: _SeverityChip(
-                              label: 'Mild',
-                              selected: _selectedSeverity == 'Mild',
-                              onTap: () => setState(() => _selectedSeverity = 'Mild'),
+                          for (final level in _severityLevels)
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: _SeverityChip(
+                                  label: level,
+                                  selected: _selectedSeverity == level,
+                                  accent: level == 'Moderate',
+                                  onTap: () => setState(() => _selectedSeverity = level),
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _SeverityChip(
-                              label: 'Moderate',
-                              selected: _selectedSeverity == 'Moderate',
-                              accent: true,
-                              onTap: () => setState(() => _selectedSeverity = 'Moderate'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _SeverityChip(
-                              label: 'Severe',
-                              selected: _selectedSeverity == 'Severe',
-                              onTap: () => setState(() => _selectedSeverity = 'Severe'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _SeverityChip(
-                              label: 'Extreme',
-                              selected: _selectedSeverity == 'Extreme',
-                              onTap: () => setState(() => _selectedSeverity = 'Extreme'),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -135,54 +142,12 @@ class _AddLogScreenState extends State<AddLogScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _TriggerChip(
-                            label: 'Poor Sleep',
-                            selected: _triggers.contains('Poor Sleep'),
-                            onTap: () => setState(() {
-                              _toggleTrigger('Poor Sleep');
-                            }),
-                          ),
-                          _TriggerChip(
-                            label: 'Stress',
-                            selected: _triggers.contains('Stress'),
-                            onTap: () => setState(() {
-                              _toggleTrigger('Stress');
-                            }),
-                          ),
-                          _TriggerChip(
-                            label: 'Missed Meal',
-                            selected: _triggers.contains('Missed Meal'),
-                            onTap: () => setState(() {
-                              _toggleTrigger('Missed Meal');
-                            }),
-                          ),
-                          _TriggerChip(
-                            label: 'Dehydration',
-                            selected: _triggers.contains('Dehydration'),
-                            onTap: () => setState(() {
-                              _toggleTrigger('Dehydration');
-                            }),
-                          ),
-                          _TriggerChip(
-                            label: 'Weather',
-                            selected: _triggers.contains('Weather'),
-                            onTap: () => setState(() {
-                              _toggleTrigger('Weather');
-                            }),
-                          ),
-                          _TriggerChip(
-                            label: 'Physical Activity',
-                            selected: _triggers.contains('Physical Activity'),
-                            onTap: () => setState(() {
-                              _toggleTrigger('Physical Activity');
-                            }),
-                          ),
-                          _TriggerChip(
-                            label: 'Add Custom',
-                            selected: false,
-                            outlined: true,
-                            onTap: null,
-                          ),
+                          for (final trigger in _triggerOptions)
+                            _TriggerChip(
+                              label: trigger,
+                              selected: _triggers.contains(trigger),
+                              onTap: () => setState(() => _toggleTrigger(trigger)),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -190,25 +155,20 @@ class _AddLogScreenState extends State<AddLogScreen> {
                       const SizedBox(height: 8),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(12),
                         decoration: _fieldDecoration(),
-                        child: const Text(
-                          'Felt unusually tired after lunch. Didn\'t sleep well last night after the late workout session.',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            height: 1.45,
-                            color: AppColors.textPrimary,
+                        child: TextField(
+                          controller: _notesController,
+                          maxLines: 5,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.all(12),
+                            hintText: 'Add more details about what you felt.',
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Health log saved.')),
-                          );
-                          Navigator.of(context).pop();
-                        },
+                        onPressed: _isSaving ? null : _saveLog,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(54),
                           shape: RoundedRectangleBorder(
@@ -226,6 +186,89 @@ class _AddLogScreenState extends State<AddLogScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickDate() async {
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+
+    if (selectedDate == null) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        _selectedDateTime.hour,
+        _selectedDateTime.minute,
+      );
+    });
+  }
+
+  Future<void> _pickTime() async {
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+    );
+
+    if (selectedTime == null) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        _selectedDateTime.year,
+        _selectedDateTime.month,
+        _selectedDateTime.day,
+        selectedTime.hour,
+        selectedTime.minute,
+      );
+    });
+  }
+
+  Future<void> _saveLog() async {
+    if (_notesController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add notes before saving the log.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await HealthLogService.instance.saveHealthLog(
+        healthLog: HealthLogModel(
+          id: '',
+          symptom: _selectedSymptom,
+          severity: _selectedSeverity,
+          loggedAt: _selectedDateTime,
+          notes: _notesController.text.trim(),
+          triggers: _triggers.toList()..sort(),
+          createdAt: DateTime.now().toUtc(),
+          updatedAt: DateTime.now().toUtc(),
+        ),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Health log saved.')),
+      );
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save health log: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   void _toggleTrigger(String trigger) {
@@ -287,7 +330,7 @@ class _DropdownField extends StatelessWidget {
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          icon: const Icon(AppIcons.keyboard_arrow_down_rounded),
           borderRadius: BorderRadius.circular(14),
           items: items
               .map(
@@ -305,34 +348,43 @@ class _DropdownField extends StatelessWidget {
 }
 
 class _InlinePickField extends StatelessWidget {
-  const _InlinePickField({required this.text, required this.trailingIcon});
+  const _InlinePickField({
+    required this.text,
+    required this.trailingIcon,
+    required this.onTap,
+  });
 
   final String text;
   final IconData trailingIcon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
-          ),
-          Icon(trailingIcon, size: 18, color: AppColors.textSecondary),
-        ],
+            Icon(trailingIcon, size: 18, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }
@@ -392,48 +444,32 @@ class _TriggerChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.outlined = false,
   });
 
   final String label;
   final bool selected;
-  final VoidCallback? onTap;
-  final bool outlined;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = outlined
-        ? AppColors.surface
-        : selected
-            ? AppColors.primary
-            : AppColors.surface;
-    final Color textColor = outlined
-        ? AppColors.textSecondary
-        : selected
-            ? AppColors.white
-            : AppColors.textSecondary;
-    final Color borderColor = outlined
-        ? AppColors.border
-        : selected
-            ? AppColors.primary
-            : AppColors.border;
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: selected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: borderColor),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12.3,
             fontWeight: FontWeight.w600,
-            color: textColor,
+            color: selected ? AppColors.white : AppColors.textSecondary,
           ),
         ),
       ),

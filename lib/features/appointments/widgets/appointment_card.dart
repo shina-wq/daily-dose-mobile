@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 
 class AppointmentCard extends StatelessWidget {

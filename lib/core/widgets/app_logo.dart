@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../theme/app_icons.dart';
 import '../theme/app_colors.dart';
 
 class AppLogo extends StatelessWidget {
@@ -23,15 +23,6 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logoIconData = FaIconData(
-      IconData(
-        FontAwesomeIcons.heartPulse.codePoint,
-        fontFamily: FontAwesomeIcons.heartPulse.fontFamily,
-        fontPackage: FontAwesomeIcons.heartPulse.fontPackage,
-        matchTextDirection: false,
-      ),
-    );
-
     return Container(
       width: size,
       height: size,
@@ -49,8 +40,8 @@ class AppLogo extends StatelessWidget {
             : null,
       ),
       child: Center(
-        child: FaIcon(
-          logoIconData,
+        child: Icon(
+          AppIcons.heart_pulse,
           size: iconSize,
           color: iconColor,
           semanticLabel: 'DailyDose logo',

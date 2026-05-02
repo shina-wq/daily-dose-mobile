@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -64,7 +65,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                     child: const Icon(
-                                      Icons.auto_awesome_rounded,
+                                      AppIcons.auto_awesome_rounded,
                                       color: AppColors.primary,
                                       size: 22,
                                     ),
@@ -85,7 +86,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
                                     padding: EdgeInsets.symmetric(horizontal: 8),
                                     child: Text(
                                       'I can analyze your health logs, prepare\nyou for upcoming appointments, or\nanswer questions about your medications.',
-                                      textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 13,
                                         height: 1.45,
@@ -97,21 +97,21 @@ class _AiChatScreenState extends State<AiChatScreen> {
                                   const _SectionLabel('SUGGESTED'),
                                   const SizedBox(height: 10),
                                   _SuggestionTile(
-                                    icon: Icons.monitor_heart_outlined,
+                                    icon: AppIcons.monitor_heart_outlined,
                                     iconColor: const Color(0xFF10B981),
                                     title: 'Analyze my recent fatigue',
                                     onTap: () {},
                                   ),
                                   const SizedBox(height: 8),
                                   _SuggestionTile(
-                                    icon: Icons.event_available_outlined,
+                                    icon: AppIcons.event_available_outlined,
                                     iconColor: AppColors.primary,
                                     title: 'Prepare for Dr. Smith\ntomorrow',
                                     onTap: () {},
                                   ),
                                   const SizedBox(height: 8),
                                   _SuggestionTile(
-                                    icon: Icons.medication_outlined,
+                                    icon: AppIcons.medication_outlined,
                                     iconColor: const Color(0xFFF59E0B),
                                     title: 'Side effects of Metformin',
                                     onTap: () {},
@@ -138,7 +138,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                                 border: Border.all(color: AppColors.border),
                               ),
                               child: const Icon(
-                                Icons.add_rounded,
+                                AppIcons.add_rounded,
                                 size: 18,
                                 color: AppColors.textSecondary,
                               ),
@@ -181,7 +181,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                                 color: AppColors.primary,
                               ),
                               child: const Icon(
-                                Icons.arrow_upward_rounded,
+                                AppIcons.arrow_upward_rounded,
                                 size: 18,
                                 color: AppColors.white,
                               ),
@@ -219,7 +219,7 @@ class _AssistantHeader extends StatelessWidget {
             border: Border.all(color: const Color(0xFFD6E4FF)),
           ),
           child: const Icon(
-            Icons.auto_awesome_rounded,
+            AppIcons.auto_awesome_rounded,
             size: 18,
             color: AppColors.primary,
           ),
@@ -264,7 +264,7 @@ class _AssistantHeader extends StatelessWidget {
         ),
         IconButton(
           onPressed: onMenuTap,
-          icon: const Icon(Icons.more_vert_rounded),
+          icon: const Icon(AppIcons.more_vert_rounded),
           splashRadius: 20,
           visualDensity: VisualDensity.compact,
         ),
@@ -351,7 +351,7 @@ class _SuggestionTile extends StatelessWidget {
               ),
             ),
             const Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevron_right_rounded,
               size: 18,
               color: AppColors.textSecondary,
             ),

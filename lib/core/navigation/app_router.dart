@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import '../../features/ai_assistant/screens/ai_chat_screen.dart';
 import '../../features/appointments/screens/add_appointment_screen.dart';
 import '../../features/appointments/screens/appointment_detail_screen.dart';
+import '../../features/appointments/models/appointment_model.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/landing_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/health_log/screens/health_log_screen.dart';
 import '../../features/health_log/screens/add_log_screen.dart';
+import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/medications/screens/medications_screen.dart';
 import '../../features/medications/screens/add_medication_screen.dart';
 import '../../features/onboarding/screens/onboarding_flow_screen.dart';
@@ -34,6 +36,7 @@ class AppRouter {
   static const String addHealthLogRoute = '/health-log/add';
   static const String aiChatRoute = '/ai-chat';
   static const String profileRoute = '/profile';
+  static const String notificationsRoute = '/notifications';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -70,10 +73,22 @@ class AppRouter {
         );
 
       case addAppointmentRoute:
-        return MaterialPageRoute(builder: (_) => const AddAppointmentScreen());
+        return MaterialPageRoute(
+          builder: (_) => AddAppointmentScreen(
+            appointment: settings.arguments is AppointmentModel
+                ? settings.arguments as AppointmentModel
+                : null,
+          ),
+        );
 
       case appointmentDetailRoute:
-        return MaterialPageRoute(builder: (_) => const AppointmentDetailScreen());
+        return MaterialPageRoute(
+          builder: (_) => AppointmentDetailScreen(
+            appointment: settings.arguments is AppointmentModel
+                ? settings.arguments as AppointmentModel
+                : null,
+          ),
+        );
 
       case healthLogRoute:
         return MaterialPageRoute(builder: (_) => const HealthLogScreen());
@@ -86,6 +101,9 @@ class AppRouter {
 
       case profileRoute:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
+
+      case notificationsRoute:
+        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
 
       default:
         return MaterialPageRoute(builder: (_) => const AppNavigationShell());

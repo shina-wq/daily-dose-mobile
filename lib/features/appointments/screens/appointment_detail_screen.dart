@@ -1,12 +1,43 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Icons;
 
+import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../services/appointment_service.dart';
+import '../models/appointment_model.dart';
 
-class AppointmentDetailScreen extends StatelessWidget {
-  const AppointmentDetailScreen({super.key});
+class AppointmentDetailScreen extends StatefulWidget {
+  const AppointmentDetailScreen({super.key, this.appointment});
+
+  final AppointmentModel? appointment;
+
+  @override
+  State<AppointmentDetailScreen> createState() => _AppointmentDetailScreenState();
+}
+
+class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
+  late final TextEditingController _completionNotesController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _completionNotesController = TextEditingController(
+      text: widget.appointment?.completionNotes ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _completionNotesController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final appointment = widget.appointment;
+    final isCompleted = appointment?.isCompleted ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -39,21 +70,27 @@ class AppointmentDetailScreen extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.more_vert_rounded),
+                        onPressed: appointment == null
+                            ? null
+                            : () => Navigator.pushNamed(
+                                  context,
+                                  AppRouter.addAppointmentRoute,
+                                  arguments: appointment,
+                                ),
+                        icon: const Icon(Icons.edit_outlined),
                         splashRadius: 20,
                         visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  const Center(
+                  Center(
                     child: CircleAvatar(
                       radius: 28,
-                      backgroundColor: Color(0xFFE2E8F0),
+                      backgroundColor: const Color(0xFFE2E8F0),
                       child: Text(
-                        'AP',
-                        style: TextStyle(
+                        appointment?.avatarLabel ?? 'AP',
+                        style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w800,
                         ),
@@ -61,10 +98,10 @@ class AppointmentDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Center(
+                  Center(
                     child: Text(
-                      'Dr. Anita Patel',
-                      style: TextStyle(
+                      appointment?.doctorName ?? 'Appointment Details',
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -72,16 +109,24 @@ class AppointmentDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  const Center(
+                  Center(
                     child: Text(
-                      'Primary Care',
-                      style: TextStyle(
+                      appointment?.specialty ?? 'Tap edit to add details',
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 14),
+                  if (appointment != null)
+                    Center(
+                      child: _StatusPill(
+                        label: isCompleted ? 'Completed' : 'Upcoming',
+                        filled: isCompleted,
+                      ),
+                    ),
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -98,43 +143,57 @@ class AppointmentDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  const _DetailCard(
+                  _DetailCard(
                     child: Column(
                       children: [
                         _TitleMetaRow(
                           icon: Icons.calendar_month_rounded,
                           iconColor: AppColors.primary,
-                          title: 'Tuesday, Nov 12, 2023',
-                          subtitle: '2:30 PM - 3:00 PM (30 min)',
+                          title: appointment == null
+                              ? 'No appointment loaded'
+                              : _formatDateTime(appointment.appointmentDateTime),
+                          subtitle: appointment == null
+                              ? 'Open this screen from an appointment'
+                              : '${appointment.durationMinutes} min',
                         ),
-                        SizedBox(height: 14),
-                        _PrimarySoftAction(label: 'Add to Calendar'),
+                        const SizedBox(height: 14),
+                        _PrimarySoftAction(
+                          label: appointment?.visitType ?? 'Visit type',
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const _DetailCard(
+                  _DetailCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _TitleMetaRow(
-                          icon: Icons.location_on_outlined,
+                          icon: appointment?.visitType.toLowerCase().contains('tele') == true
+                              ? Icons.videocam_outlined
+                              : Icons.location_on_outlined,
                           iconColor: AppColors.textSecondary,
-                          title: 'In-Person Visit',
-                          subtitle: '123 Medical Center Blvd\nSuite 400\nNew York, NY 10001',
+                          title: appointment?.visitType ?? 'Visit Type',
+                          subtitle: appointment?.visitType.toLowerCase().contains('tele') == true
+                              ? (appointment?.meetingLink ?? 'No meeting link saved')
+                              : (appointment?.location ?? 'No location saved'),
                           titleWeight: FontWeight.w700,
                         ),
-                        SizedBox(height: 14),
-                        _SecondaryAction(label: 'Get Directions'),
+                        const SizedBox(height: 14),
+                        _SecondaryAction(
+                          label: appointment?.visitType.toLowerCase().contains('tele') == true
+                              ? 'Open Meeting Link'
+                              : 'Get Directions',
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const _DetailCard(
+                  _DetailCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'REASON FOR VISIT',
                           style: TextStyle(
                             fontSize: 11,
@@ -143,10 +202,10 @@ class AppointmentDetailScreen extends StatelessWidget {
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
-                          'Annual physical examination and routine bloodwork check.',
-                          style: TextStyle(
+                          appointment?.reason ?? 'No reason provided yet.',
+                          style: const TextStyle(
                             fontSize: 13.5,
                             height: 1.38,
                             color: AppColors.textPrimary,
@@ -156,29 +215,33 @@ class AppointmentDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const _DetailCard(
-                    borderColor: Color(0xFFD5DFF4),
+                  _DetailCard(
+                    borderColor: const Color(0xFFD5DFF4),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _BadgeIcon(icon: Icons.auto_awesome),
-                        SizedBox(width: 10),
+                        const _BadgeIcon(icon: Icons.auto_awesome),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'AI Summary Pending',
-                                style: TextStyle(
+                                appointment?.isAiSummaryEnabled == false
+                                    ? 'AI Summary Disabled'
+                                    : 'AI Summary Pending',
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Text(
-                                'Your personalized pre-visit summary and recommended questions will be generated 24 hours before your appointment.',
-                                style: TextStyle(
+                                appointment?.isAiSummaryEnabled == false
+                                    ? 'This appointment will not generate a pre-visit summary.'
+                                    : 'Your personalized pre-visit summary and recommended questions will be generated 24 hours before your appointment.',
+                                style: const TextStyle(
                                   fontSize: 12.5,
                                   height: 1.4,
                                   color: AppColors.textSecondary,
@@ -191,25 +254,54 @@ class AppointmentDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {},
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        side: const BorderSide(color: AppColors.border),
-                        foregroundColor: AppColors.textPrimary,
-                        backgroundColor: AppColors.white,
-                      ),
-                      child: const Text(
-                        'Reschedule',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                  if (appointment != null && !isCompleted) ...[
+                    const Text(
+                      'Completion Notes',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    _TextAreaCard(controller: _completionNotesController),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _completeAppointment,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('Mark Completed'),
+                      ),
+                    ),
+                  ] else if (appointment != null && isCompleted) ...[
+                    const Text(
+                      'Completion Notes',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _DetailCard(
+                      child: Text(
+                        appointment!.completionNotes?.isNotEmpty == true
+                            ? appointment.completionNotes!
+                            : 'No completion notes saved.',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.4,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Center(
                     child: TextButton(
@@ -227,6 +319,78 @@ class AppointmentDetailScreen extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _completeAppointment() async {
+    final appointment = widget.appointment;
+    if (appointment == null || _completionNotesController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add completion notes before marking complete.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await AppointmentService.instance.completeAppointment(
+        appointmentId: appointment.id,
+        completionNotes: _completionNotesController.text.trim(),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Appointment marked complete.')),
+      );
+
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to complete appointment: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final localDate = dateTime.toLocal();
+    return '${MaterialLocalizations.of(context).formatMediumDate(localDate)} • ${TimeOfDay.fromDateTime(localDate).format(context)}';
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.filled});
+
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: filled ? const Color(0xFFE7F7F1) : const Color(0xFFFDF4E5),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: filled ? const Color(0xFF0B8F6C) : const Color(0xFFD97706),
         ),
       ),
     );
@@ -402,6 +566,32 @@ class _SecondaryAction extends StatelessWidget {
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _TextAreaCard extends StatelessWidget {
+  const _TextAreaCard({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: 4,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.all(12),
+          hintText: 'What happened after the visit?',
         ),
       ),
     );

@@ -5,8 +5,8 @@ import '../../features/appointments/screens/appointments_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/medications/screens/medications_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../theme/app_icons.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_dimensions.dart';
 
 class AppNavigationShell extends StatefulWidget {
   const AppNavigationShell({super.key, this.initialIndex = 0});
@@ -19,11 +19,11 @@ class AppNavigationShell extends StatefulWidget {
 
 class _AppNavigationShellState extends State<AppNavigationShell> {
   static const _tabs = <_NavTab>[
-    _NavTab(label: 'Home', icon: Icons.home_rounded),
-    _NavTab(label: 'Meds', icon: Icons.medication_rounded),
-    _NavTab(label: 'Visits', icon: Icons.event_note_rounded),
-    _NavTab(label: 'Chat', icon: Icons.chat_bubble_outline_rounded),
-    _NavTab(label: 'Profile', icon: Icons.person_rounded),
+    _NavTab(label: 'Home', icon: AppIcons.home_rounded),
+    _NavTab(label: 'Meds', icon: AppIcons.medication_rounded),
+    _NavTab(label: 'Visits', icon: AppIcons.event_note_rounded),
+    _NavTab(label: 'Chat', icon: AppIcons.chat_bubble_outline_rounded),
+    _NavTab(label: 'Profile', icon: AppIcons.person_rounded),
   ];
 
   static const _pages = <Widget>[
@@ -50,28 +50,12 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          margin: const EdgeInsets.fromLTRB(
-            AppDimensions.md,
-            0,
-            AppDimensions.md,
-            AppDimensions.md,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.sm,
-            vertical: AppDimensions.sm,
-          ),
+          width: double.infinity,
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(20),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            border: Border(top: BorderSide(color: AppColors.border)),
           ),
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
           child: Row(
             children: List.generate(_tabs.length, (index) {
               final tab = _tabs[index];
@@ -79,28 +63,16 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
 
               return Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                   onTap: () => setState(() => _currentIndex = index),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          height: 6,
-                          width: 6,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
                         Icon(
                           tab.icon,
-                          size: 24,
+                          size: 22,
                           color: isSelected
                               ? AppColors.primary
                               : AppColors.textSecondary,
@@ -111,7 +83,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 10,
                             fontWeight: isSelected
                                 ? FontWeight.w600
                                 : FontWeight.w500,
