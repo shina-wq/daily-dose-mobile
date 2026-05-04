@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart' hide Icons;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/utils/token_storage.dart';
+import '../../../services/auth_service.dart';
+import '../providers/auth_controller.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_icons.dart';
@@ -6,15 +11,18 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../widgets/auth_form_field.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
 	const LoginScreen({super.key});
 
 	@override
-	State<LoginScreen> createState() => _LoginScreenState();
+	ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
 	bool _obscurePassword = true;
+	final _formKey = GlobalKey<FormState>();
+	final TextEditingController _emailController = TextEditingController();
+	final TextEditingController _passwordController = TextEditingController();
 
 	void _goBack() {
 		if (Navigator.of(context).canPop()) {
@@ -26,10 +34,41 @@ class _LoginScreenState extends State<LoginScreen> {
 	}
 
 	@override
+	void dispose() {
+		_emailController.dispose();
+		_passwordController.dispose();
+		super.dispose();
+	}
+
+	Future<void> _submit() async {
+		if (!_formKey.currentState!.validate()) return;
+
+		final email = _emailController.text.trim();
+		final password = _passwordController.text;
+
+		showDialog(
+			context: context,
+			barrierDismissible: false,
+			builder: (_) => const Center(child: CircularProgressIndicator()),
+		);
+
+		try {
+			await ref.read(authControllerProvider).loginUser(email: email, password: password);
+			// persist basic user info locally
+			final uid = AuthService.instance.currentUser?.uid;
+			await UserStorage.instance.saveBasic(uid: uid, email: email);
+			if (mounted) Navigator.of(context).pushReplacementNamed(AppRouter.homeRoute);
+		} catch (e) {
+			Navigator.of(context).pop();
+			ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+			return;
+		}
+	}
+
 	Widget build(BuildContext context) {
 		final isCompact = MediaQuery.of(context).size.height < 700;
 
-		return Scaffold(
+	return Scaffold(
 			backgroundColor: AppColors.background,
 			body: SafeArea(
 				child: LayoutBuilder(
@@ -47,9 +86,11 @@ class _LoginScreenState extends State<LoginScreen> {
 												color: const Color(0xFFF2F5FA),
 												borderRadius: BorderRadius.circular(10),
 											),
-											child: Column(
-												crossAxisAlignment: CrossAxisAlignment.stretch,
-												children: [
+											child: Form(
+												key: _formKey,
+												child: Column(
+													crossAxisAlignment: CrossAxisAlignment.stretch,
+													children: [
 													const SizedBox(height: 34),
 													Align(
 														alignment: Alignment.centerLeft,
@@ -77,30 +118,40 @@ class _LoginScreenState extends State<LoginScreen> {
 														),
 													),
 													const SizedBox(height: 24),
-													AuthFormField(
-														label: 'Email Address',
-														hintText: 'sarah.jenkins@example.com',
-														prefixIcon: Icons.mail_outline_rounded,
-														keyboardType: TextInputType.emailAddress,
-													),
+																						AuthFormField(
+																							controller: _emailController,
+																							label: 'Email Address',
+																							hintText: 'sarah.jenkins@example.com',
+																							prefixIcon: Icons.mail_outline_rounded,
+																							keyboardType: TextInputType.emailAddress,
+																							validator: (v) {
+																								if (v == null || v.isEmpty) return 'Email is required';
+																								final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[a-zA-Z]{2,4}");
+																								if (!emailRegex.hasMatch(v)) return 'Enter a valid email';
+																								return null;
+																							},
+																						),
 													const SizedBox(height: 18),
-													AuthFormField(
-														label: 'Password',
-														hintText: '........',
-														prefixIcon: Icons.lock_outline_rounded,
-														obscureText: _obscurePassword,
-														suffixIcon: IconButton(
-															onPressed: () {
-																setState(() => _obscurePassword = !_obscurePassword);
-															},
-															icon: Icon(
-																_obscurePassword
-																	? Icons.visibility_off_outlined
-																	: Icons.visibility_outlined,
-																color: AppColors.textSecondary,
-															),
-														),
-													),
+																						AuthFormField(
+																							controller: _passwordController,
+																							label: 'Password',
+																							hintText: '........',
+																							prefixIcon: Icons.lock_outline_rounded,
+																							obscureText: _obscurePassword,
+																							validator: (v) {
+																								if (v == null || v.isEmpty) return 'Password is required';
+																								return null;
+																							},
+																							suffixIcon: IconButton(
+																								onPressed: () {
+																									setState(() => _obscurePassword = !_obscurePassword);
+																								},
+																								icon: Icon(
+																									_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+																									color: AppColors.textSecondary,
+																								),
+																							),
+																						),
 													Align(
 														alignment: Alignment.centerRight,
 														child: TextButton(
@@ -113,17 +164,15 @@ class _LoginScreenState extends State<LoginScreen> {
 													const SizedBox(height: 76),
 													SizedBox(
 														height: AppDimensions.buttonHeight,
-														child: FilledButton(
-															onPressed: () {
-																Navigator.of(context).pushReplacementNamed(AppRouter.homeRoute);
-															},
-															style: FilledButton.styleFrom(
-																shape: RoundedRectangleBorder(
-																	borderRadius: BorderRadius.circular(18),
-																),
-															),
-															child: const Text('Log In'),
-														),
+																												child: FilledButton(
+																													onPressed: _submit,
+																													style: FilledButton.styleFrom(
+																														shape: RoundedRectangleBorder(
+																															borderRadius: BorderRadius.circular(18),
+																														),
+																													),
+																													child: const Text('Log In'),
+																												),
 													),
 													const SizedBox(height: 14),
 													Row(
@@ -147,7 +196,8 @@ class _LoginScreenState extends State<LoginScreen> {
 									),
 								),
 							),
-						);
+						),
+          );
 					},
 				),
 			),

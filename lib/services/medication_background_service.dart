@@ -1,4 +1,3 @@
-import 'package:uuid/uuid.dart';
 import 'medication_service.dart';
 import '../features/medications/models/medication_dose_model.dart';
 import '../features/medications/models/medication_adherence_model.dart';
@@ -211,7 +210,6 @@ class MedicationBackgroundService {
 	/// Manual task to manually check and update adherence for all medications
 	Future<void> recalculateAllAdherence(String uid) async {
 		try {
-			final today = DateTime.now();
 			final medications = await _medicationService.getActiveMedications(uid);
 
 			for (final medication in medications) {

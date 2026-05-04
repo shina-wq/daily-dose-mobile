@@ -9,6 +9,7 @@ class ProfileModel {
     this.careTeamSummary,
     this.healthLogsSummary,
     this.avatarUrl,
+    this.onboarding,
   });
 
   final String uid;
@@ -20,6 +21,7 @@ class ProfileModel {
   final String? careTeamSummary;
   final String? healthLogsSummary;
   final String? avatarUrl;
+  final Map<String, dynamic>? onboarding;
 
   ProfileModel copyWith({
     String? uid,
@@ -31,6 +33,7 @@ class ProfileModel {
     String? careTeamSummary,
     String? healthLogsSummary,
     String? avatarUrl,
+    Map<String, dynamic>? onboarding,
   }) {
     return ProfileModel(
       uid: uid ?? this.uid,
@@ -42,6 +45,7 @@ class ProfileModel {
       careTeamSummary: careTeamSummary ?? this.careTeamSummary,
       healthLogsSummary: healthLogsSummary ?? this.healthLogsSummary,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      onboarding: onboarding ?? this.onboarding,
     );
   }
 
@@ -59,6 +63,7 @@ class ProfileModel {
         'avatarUrl': avatarUrl,
         'updatedAt': DateTime.now().toIso8601String(),
       },
+      'onboarding': onboarding,
     };
   }
 
@@ -76,6 +81,7 @@ class ProfileModel {
       careTeamSummary: profileMap['careTeamSummary'] as String?,
       healthLogsSummary: profileMap['healthLogsSummary'] as String?,
       avatarUrl: profileMap['avatarUrl'] as String?,
+      onboarding: (map['onboarding'] as Map?)?.cast<String, dynamic>(),
     );
   }
 

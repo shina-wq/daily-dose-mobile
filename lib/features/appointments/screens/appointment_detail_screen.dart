@@ -291,7 +291,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     const SizedBox(height: 8),
                     _DetailCard(
                       child: Text(
-                        appointment!.completionNotes?.isNotEmpty == true
+                        appointment.completionNotes?.isNotEmpty == true
                             ? appointment.completionNotes!
                             : 'No completion notes saved.',
                         style: const TextStyle(

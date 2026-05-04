@@ -21,6 +21,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _careTeamController = TextEditingController();
   final _healthLogsController = TextEditingController();
 
+  Future<ProfileModel>? _profileFuture;
+  String? _profileUserId;
+
   bool _isSaving = false;
   bool _isInitialized = false;
 
@@ -65,6 +68,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
+    if (_profileFuture == null || _profileUserId != currentUser.uid) {
+      _profileUserId = currentUser.uid;
+      _profileFuture = ProfileService.instance.fetchCurrentUserProfile();
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -74,14 +82,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 430),
-                child: StreamBuilder<ProfileModel>(
-                  stream: ProfileService.instance.watchCurrentUserProfile(),
+                child: FutureBuilder<ProfileModel>(
+                  future: _profileFuture,
                   builder: (context, snapshot) {
-                    final profile = snapshot.data ??
-                        ProfileModel.empty(
-                          uid: currentUser.uid,
-                          email: currentUser.email ?? '',
-                        );
+                    if (snapshot.hasError) {
+                      return _ProfileLoadError(
+                        message: snapshot.error.toString(),
+                        onRetry: () {
+                          setState(() {
+                            _isInitialized = false;
+                            _profileFuture = ProfileService.instance.fetchCurrentUserProfile();
+                          });
+                        },
+                      );
+                    }
+
+                    if (!snapshot.hasData) {
+                      return const _ProfileLoadingState();
+                    }
+
+                    final profile = snapshot.data!;
 
                     _primeControllers(profile);
 
@@ -242,6 +262,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await ProfileService.instance.updateCurrentUserProfile(updated);
 
+      if (mounted) {
+        setState(() {
+          _isInitialized = false;
+          _profileFuture = ProfileService.instance.fetchCurrentUserProfile();
+        });
+      }
+
       if (!mounted) {
         return;
       }
@@ -354,6 +381,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() => _isSaving = false);
       }
     }
+  }
+}
+
+class _ProfileLoadingState extends StatelessWidget {
+  const _ProfileLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 72),
+      child: Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class _ProfileLoadError extends StatelessWidget {
+  const _ProfileLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 72, 16, 20),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Unable to load your profile right now.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
   }
 }
 

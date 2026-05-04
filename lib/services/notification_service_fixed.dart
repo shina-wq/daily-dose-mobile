@@ -148,9 +148,7 @@ class NotificationService {
 
       for (final doc in snapshot.docs) {
         final dose = MedicationDoseModel.fromMap(doc.data());
-        if (dose != null) {
-          await scheduleMedicationReminder(uid, dose);
-        }
+        await scheduleMedicationReminder(uid, dose);
       }
     } catch (e) {
       print('Error scheduling all pending reminders: $e');

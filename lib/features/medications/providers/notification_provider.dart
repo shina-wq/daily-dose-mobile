@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../services/notification_service.dart';
 import '../models/medication_notification_model.dart';
 
@@ -7,14 +8,16 @@ final notificationServiceProvider = Provider((ref) => NotificationService.instan
 
 /// Provider to get all notifications
 final notificationsProvider = FutureProvider.autoDispose<List<MedicationNotificationModel>>((ref) async {
-  final uid = 'uid'; // Replace with actual uid from auth
+  final uid = ref.watch(authStateProvider).asData?.value?.uid;
+  if (uid == null) return [];
   final service = ref.watch(notificationServiceProvider);
   return service.getNotifications(uid);
 });
 
 /// Provider to get unread notifications only
 final unreadNotificationsProvider = FutureProvider.autoDispose<List<MedicationNotificationModel>>((ref) async {
-  final uid = 'uid'; // Replace with actual uid from auth
+  final uid = ref.watch(authStateProvider).asData?.value?.uid;
+  if (uid == null) return [];
   final service = ref.watch(notificationServiceProvider);
   return service.getUnreadNotifications(uid);
 });
@@ -55,7 +58,13 @@ class NotificationActionState {
 /// Notifier for notification actions
 class NotificationActionNotifier extends Notifier<NotificationActionState> {
   NotificationService get _service => ref.read(notificationServiceProvider);
-  String get _uid => 'uid'; // Replace with actual uid from auth
+  String get _uid {
+    final uid = ref.read(authStateProvider).asData?.value?.uid;
+    if (uid == null) {
+      throw StateError('Not authenticated');
+    }
+    return uid;
+  }
 
   @override
   NotificationActionState build() {

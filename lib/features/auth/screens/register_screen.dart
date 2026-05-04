@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart' hide Icons;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/auth_controller.dart';
+import '../../../core/utils/token_storage.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_icons.dart';
@@ -6,16 +10,32 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../widgets/auth_form_field.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
 	const RegisterScreen({super.key});
 
 	@override
-	State<RegisterScreen> createState() => _RegisterScreenState();
+	ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 	bool _obscurePassword = true;
 	bool _obscureConfirmPassword = true;
+	final _formKey = GlobalKey<FormState>();
+	final TextEditingController _nameController = TextEditingController();
+	final TextEditingController _emailController = TextEditingController();
+	final TextEditingController _passwordController = TextEditingController();
+	final TextEditingController _confirmController = TextEditingController();
+	final TextEditingController _ageController = TextEditingController();
+
+	@override
+	void dispose() {
+		_nameController.dispose();
+		_emailController.dispose();
+		_passwordController.dispose();
+		_confirmController.dispose();
+		_ageController.dispose();
+		super.dispose();
+	}
 
 	void _goBack() {
 		if (Navigator.of(context).canPop()) {
@@ -48,9 +68,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 												color: const Color(0xFFF2F5FA),
 												borderRadius: BorderRadius.circular(10),
 											),
-											child: Column(
-												crossAxisAlignment: CrossAxisAlignment.stretch,
-												children: [
+											child: Form(
+												key: _formKey,
+												child: Column(
+													crossAxisAlignment: CrossAxisAlignment.stretch,
+													children: [
 													const SizedBox(height: 34),
 													Align(
 														alignment: Alignment.centerLeft,
@@ -77,20 +99,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
 															height: 1.35,
 														),
 													),
-													const SizedBox(height: 24),
-													const AuthFormField(
-														label: 'Full Name',
-														hintText: 'Sarah Jenkins',
-														prefixIcon: Icons.person_outline_rounded,
-													),
-													const SizedBox(height: 18),
-													const AuthFormField(
-														label: 'Email Address',
-														hintText: 'sarah@example.com',
-														prefixIcon: Icons.mail_outline_rounded,
-														keyboardType: TextInputType.emailAddress,
-													),
-													const SizedBox(height: 18),
+																										const SizedBox(height: 24),
+																										AuthFormField(
+																												controller: _nameController,
+																												label: 'Full Name',
+																												hintText: 'Sarah Jenkins',
+																												prefixIcon: Icons.person_outline_rounded,
+																												validator: (v) {
+																													if (v == null || v.isEmpty) return 'Name is required';
+																													return null;
+																												},
+																										),
+																										const SizedBox(height: 18),
+																										AuthFormField(
+																												controller: _emailController,
+																												label: 'Email Address',
+																												hintText: 'sarah@example.com',
+																												prefixIcon: Icons.mail_outline_rounded,
+																												keyboardType: TextInputType.emailAddress,
+																												validator: (v) {
+																													if (v == null || v.isEmpty) return 'Email is required';
+																													final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[a-zA-Z]{2,4}");
+																													if (!emailRegex.hasMatch(v)) return 'Enter a valid email';
+																													return null;
+																												},
+																										),
+																										const SizedBox(height: 18),
+																										AuthFormField(
+																											controller: _ageController,
+																											label: 'Age',
+																											hintText: 'e.g. 35',
+																											prefixIcon: Icons.calendar_today_outlined,
+																											keyboardType: TextInputType.number,
+																											validator: (v) {
+																												if (v == null || v.isEmpty) return 'Age is required';
+																												final n = int.tryParse(v);
+																												if (n == null || n <= 0) return 'Enter a valid age';
+																												return null;
+																											},
+																										),
+																										const SizedBox(height: 18),
 													AuthFormField(
 														label: 'Password',
 														hintText: 'Create a password',
@@ -139,9 +187,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
 													SizedBox(
 														height: AppDimensions.buttonHeight,
 														child: FilledButton(
-															onPressed: () {
-																Navigator.of(context).pushReplacementNamed(AppRouter.onboardingRoute);
-															},
+																														onPressed: () async {
+																															if (!_formKey.currentState!.validate()) return;
+
+																															final name = _nameController.text.trim();
+																															final email = _emailController.text.trim();
+																															final password = _passwordController.text;
+																															final age = int.tryParse(_ageController.text) ?? 0;
+
+																															showDialog(
+																																context: context,
+																																barrierDismissible: false,
+																																builder: (_) => const Center(child: CircularProgressIndicator()),
+																															);
+
+																															try {
+																																await ref.read(authControllerProvider).registerUser(
+																																	name: name,
+																																	email: email,
+																																	password: password,
+																																	age: age,
+																																);
+																																await UserStorage.instance.saveBasic(email: email, name: name);
+																																if (mounted) Navigator.of(context).pushReplacementNamed(AppRouter.onboardingRoute);
+																															} catch (e) {
+																																Navigator.of(context).pop();
+																																ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+																															}
+																														},
 															style: FilledButton.styleFrom(
 																shape: RoundedRectangleBorder(
 																	borderRadius: BorderRadius.circular(18),
@@ -172,7 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 									),
 								),
 							),
-						);
+						),);
 					},
 				),
 			),

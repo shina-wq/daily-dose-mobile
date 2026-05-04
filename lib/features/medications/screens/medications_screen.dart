@@ -426,61 +426,6 @@ class _DoseActionBottomSheet extends ConsumerWidget {
 	}
 }
 
-// ==================== HELPER WIDGETS ====================
-
-class _AdherenceDay extends StatelessWidget {
-	const _AdherenceDay({
-		required this.label,
-		this.dayNumber,
-		this.done = false,
-		this.missed = false,
-		this.active = false,
-	});
-
-	final String label;
-	final String? dayNumber;
-	final bool done;
-	final bool missed;
-	final bool active;
-
-	@override
-	Widget build(BuildContext context) {
-		final Color fillColor;
-		final Widget inner;
-
-		if (done) {
-			fillColor = AppColors.secondary;
-			inner = const Icon(Icons.check, size: 12, color: AppColors.white);
-		} else if (missed) {
-			fillColor = const Color(0xFFFFF7ED);
-			inner = const Text('✕', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFF59E0B)));
-		} else if (active) {
-			fillColor = const Color(0xFFF5F8FF);
-			inner = Text(dayNumber ?? label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary));
-		} else {
-			fillColor = const Color(0xFFF1F5F9);
-			inner = Text(dayNumber ?? label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textSecondary));
-		}
-
-		return Column(
-			children: [
-				Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-				const SizedBox(height: 8),
-				Container(
-					width: 24,
-					height: 24,
-					alignment: Alignment.center,
-					decoration: BoxDecoration(
-						shape: BoxShape.circle,
-						color: fillColor,
-						border: Border.all(color: active ? AppColors.primary : Colors.transparent, width: 1.4),
-					),
-					child: inner,
-				),
-			],
-		);
-	}
-}
 
 class _MedicationGroupHeader extends StatelessWidget {
 	const _MedicationGroupHeader({

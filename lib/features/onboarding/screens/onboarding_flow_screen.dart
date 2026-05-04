@@ -4,6 +4,10 @@ import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../../../services/firestore_service.dart';
+import '../models/onboarding_model.dart';
+import '../../../services/auth_service.dart';
+import '../../../core/utils/token_storage.dart';
 
 class OnboardingFlowScreen extends StatefulWidget {
   const OnboardingFlowScreen({super.key});
@@ -116,6 +120,21 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
         _currentStep += 1;
       });
       return;
+    }
+
+    // last step: save onboarding data to Firestore and mark locally
+    final currentUser = AuthService.instance.currentUser;
+    if (currentUser != null) {
+      final onboarding = OnboardingModel(
+        illnessType: _conditions.where((c) => c.selected).map((c) => c.name).join(', '),
+        medications: _medications.map((m) => m.name).toList(),
+        symptoms: [],
+        doctorType: _communicationStyles[_communicationStyleIndex].title,
+        aiPreference: _checkInTime,
+      );
+
+      FirestoreService.instance.saveOnboardingData(uid: currentUser.uid, onboarding: onboarding);
+      UserStorage.instance.setOnboarded(true);
     }
 
     Navigator.of(context).pushReplacementNamed(AppRouter.homeRoute);
