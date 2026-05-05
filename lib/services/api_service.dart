@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
+	ApiService();
+
 	ApiService._();
 
 	static final ApiService instance = ApiService._();

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_controller.dart';
 import '../../../core/utils/token_storage.dart';
+import '../../../core/providers/storage_provider.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_icons.dart';
@@ -141,9 +142,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 																										const SizedBox(height: 18),
 													AuthFormField(
 														label: 'Password',
+														controller: _passwordController,
 														hintText: 'Create a password',
 														prefixIcon: Icons.lock_outline_rounded,
 														obscureText: _obscurePassword,
+														validator: (v) {
+															if (v == null || v.isEmpty) return 'Password is required';
+															if (v.length < 8) return 'Password must be at least 8 characters';
+															return null;
+														},
 														suffixIcon: IconButton(
 															onPressed: () {
 																setState(() => _obscurePassword = !_obscurePassword);
@@ -153,19 +160,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 																	? Icons.visibility_off_outlined
 																	: Icons.visibility_outlined,
 																color: AppColors.textSecondary,
+																),
 															),
 														),
-													),
 													const SizedBox(height: 18),
 													AuthFormField(
 														label: 'Confirm Password',
+														controller: _confirmController,
 														hintText: 'Confirm your password',
 														prefixIcon: Icons.lock_outline_rounded,
 														obscureText: _obscureConfirmPassword,
+														validator: (v) {
+															if (v == null || v.isEmpty) return 'Confirm your password';
+															if (v != _passwordController.text) return 'Passwords do not match';
+															return null;
+														},
 														suffixIcon: IconButton(
 															onPressed: () {
 																setState(() =>
-																		_obscureConfirmPassword = !_obscureConfirmPassword);
+																	_obscureConfirmPassword = !_obscureConfirmPassword);
 															},
 															icon: Icon(
 																_obscureConfirmPassword
@@ -173,8 +186,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 																	: Icons.visibility_outlined,
 																color: AppColors.textSecondary,
 															),
+															),
 														),
-													),
 													const SizedBox(height: 8),
 													const Text(
 														'Must be at least 8 characters long.',
@@ -208,8 +221,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 																																	password: password,
 																																	age: age,
 																																);
-																																await UserStorage.instance.saveBasic(email: email, name: name);
-																																if (mounted) Navigator.of(context).pushReplacementNamed(AppRouter.onboardingRoute);
+																																await ref.read(userStorageProvider).saveBasic(email: email, name: name);
+																																// Dismiss loading dialog if present (try root navigator first, then local)
+																																if (mounted) {
+																																	try {
+																																		if (Navigator.of(context, rootNavigator: true).canPop()) {
+																																			Navigator.of(context, rootNavigator: true).pop();
+																																		}
+																																	} catch (_) {}
+
+																																	try {
+																																		if (Navigator.of(context).canPop()) {
+																																			Navigator.of(context).pop();
+																																		}
+																																	} catch (_) {}
+
+																																	Navigator.of(context, rootNavigator: true).pushReplacementNamed(AppRouter.onboardingRoute);
+																																}
 																															} catch (e) {
 																																Navigator.of(context).pop();
 																																ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -224,8 +252,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 														),
 													),
 													const SizedBox(height: 14),
-													Row(
-														mainAxisAlignment: MainAxisAlignment.center,
+													Wrap(
+														alignment: WrapAlignment.center,
+														crossAxisAlignment: WrapCrossAlignment.center,
+														spacing: 0,
+														runSpacing: 0,
 														children: [
 															const Text(
 																'Already have an account? ',
@@ -233,8 +264,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 															),
 															TextButton(
 																onPressed: () {
-																	Navigator.of(context).pushReplacementNamed(AppRouter.loginRoute);
-																},
+																Navigator.of(context).pushReplacementNamed(AppRouter.loginRoute);
+															},
 																child: const Text('Log In'),
 															),
 														],

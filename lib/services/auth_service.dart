@@ -2,11 +2,22 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
-  AuthService._();
+  AuthService();
 
-  static final AuthService instance = AuthService._();
+  AuthService._([FirebaseAuth? auth]) : _auth = auth ?? FirebaseAuth.instance;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  // Made non-final so tests can inject a mock instance.
+  static AuthService instance = AuthService._();
+
+  late final FirebaseAuth _auth;
+
+  /// Replace the active singleton with a test instance backed by [auth].
+  ///
+  /// Tests should call `AuthService.setInstanceForTesting(mockAuth)` before
+  /// pumping widgets that read `AuthService.instance`.
+  static void setInstanceForTesting([FirebaseAuth? auth]) {
+    instance = AuthService._(auth);
+  }
 
   User? get currentUser => _auth.currentUser;
 

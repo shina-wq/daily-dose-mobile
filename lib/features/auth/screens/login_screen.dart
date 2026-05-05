@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/token_storage.dart';
+import '../../../core/providers/storage_provider.dart';
 import '../../../services/auth_service.dart';
 import '../providers/auth_controller.dart';
 
@@ -46,7 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 		final email = _emailController.text.trim();
 		final password = _passwordController.text;
 
-		showDialog(
+		final dialogFuture = showDialog(
 			context: context,
 			barrierDismissible: false,
 			builder: (_) => const Center(child: CircularProgressIndicator()),
@@ -55,9 +56,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 		try {
 			await ref.read(authControllerProvider).loginUser(email: email, password: password);
 			// persist basic user info locally
-			final uid = AuthService.instance.currentUser?.uid;
-			await UserStorage.instance.saveBasic(uid: uid, email: email);
-			if (mounted) Navigator.of(context).pushReplacementNamed(AppRouter.homeRoute);
+			String? uid;
+			try {
+				uid = AuthService.instance.currentUser?.uid;
+			} catch (_) {}
+			await ref.read(userStorageProvider).saveBasic(uid: uid, email: email);
+			// Dismiss the loading dialog before replacing the route.
+			if (mounted) {
+				try {
+					if (Navigator.of(context, rootNavigator: true).canPop()) {
+						Navigator.of(context, rootNavigator: true).pop();
+					}
+				} catch (_) {}
+
+				await dialogFuture;
+
+				if (!mounted) {
+					return;
+				}
+
+				Navigator.of(context).pushReplacementNamed(AppRouter.homeRoute);
+			}
 		} catch (e) {
 			Navigator.of(context).pop();
 			ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -175,8 +194,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 																												),
 													),
 													const SizedBox(height: 14),
-													Row(
-														mainAxisAlignment: MainAxisAlignment.center,
+													Wrap(
+														alignment: WrapAlignment.center,
+														crossAxisAlignment: WrapCrossAlignment.center,
+														spacing: 0,
+														runSpacing: 0,
 														children: [
 															const Text(
 																"Don't have an account? ",

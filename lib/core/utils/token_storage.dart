@@ -1,6 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class UserStorage {
+	UserStorage();
+
 	UserStorage._();
 
 	static final UserStorage instance = UserStorage._();

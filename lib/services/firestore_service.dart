@@ -4,11 +4,22 @@ import '../features/onboarding/models/onboarding_model.dart';
 import '../features/profile/models/profile_model.dart';
 
 class FirestoreService {
-  FirestoreService._();
+  FirestoreService._([FirebaseFirestore? firestore]) : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static final FirestoreService instance = FirestoreService._();
+  FirestoreService.forTesting() : _firestore = null;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Made non-final so tests can inject a mock instance.
+  static FirestoreService instance = FirestoreService._();
+
+  FirebaseFirestore _firestore;
+
+  /// Replace the active singleton with a test instance backed by [firestore].
+  ///
+  /// Tests should call `FirestoreService.setInstanceForTesting(mockFirestore)`
+  /// before exercising code that uses `FirestoreService.instance`.
+  static void setInstanceForTesting(FirestoreService service) {
+    instance = service;
+  }
 
   CollectionReference get users => _firestore.collection('users');
 

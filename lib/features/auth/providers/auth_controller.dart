@@ -3,11 +3,28 @@ import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../models/user_model.dart';
 
-final authControllerProvider = Provider<AuthController>((ref) {
+final authControllerProvider = Provider<AuthControllerBase>((ref) {
   return AuthController();
 });
 
-class AuthController {
+abstract class AuthControllerBase {
+  Future<void> registerUser({
+    required String name,
+    required String email,
+    required String password,
+    required int age,
+    String? gender,
+  });
+
+  Future<void> loginUser({
+    required String email,
+    required String password,
+  });
+
+  Future<void> logoutUser();
+}
+
+class AuthController implements AuthControllerBase {
   final AuthService _authService = AuthService.instance;
   final FirestoreService _firestoreService = FirestoreService.instance;
 

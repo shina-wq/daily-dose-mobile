@@ -42,6 +42,24 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     if (userId == null || !mounted) return;
 
     try {
+      // Check if a Gemini API key is available before attempting initialization.
+      final aiService = ref.read(aiServiceProvider);
+      final storedKey = await aiService.getStoredApiKey();
+      final envKey = const String.fromEnvironment('GEMINI_API_KEY');
+      final apiKey = (storedKey ?? '').isNotEmpty ? storedKey! : envKey;
+
+      if (apiKey.isEmpty) {
+        // Don't attempt to initialize the assistant if there's no API key.
+        // Show a friendly, non-exception snackbar so the user knows why the assistant is disabled.
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Assistant disabled: Gemini API key not configured.'),
+          ),
+        );
+        return;
+      }
+
       final assistantService = ref.read(assistantServiceProvider);
       await assistantService.initializeForUser(userId);
       if (mounted) {

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart' hide Icons;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/navigation/app_router.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../models/profile_model.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
   final _conditionController = TextEditingController();
@@ -39,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = AuthService.instance.currentUser;
+    final currentUser = ref.read(authServiceProvider).currentUser;
     if (currentUser == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -358,7 +360,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isSaving = true);
 
     try {
-      await AuthService.instance.logout();
+      await ref.read(authServiceProvider).logout();
 
       if (!mounted) {
         return;
