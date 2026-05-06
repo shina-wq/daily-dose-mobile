@@ -5,13 +5,30 @@ import '../features/medications/models/medication_dose_model.dart';
 import '../features/medications/models/medication_adherence_model.dart';
 
 class MedicationService {
-  MedicationService._();
-  static final MedicationService instance = MedicationService._();
+  final FirebaseFirestore _firestore;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  MedicationService(this._firestore);
+
+  static late MedicationService _instance;
   static const String _medicationsCollection = 'medications';
   static const String _dosesCollection = 'medication_doses';
   static const String _adherenceCollection = 'medication_adherence';
+
+  // Factory constructor for production
+  factory MedicationService.create() {
+    return _instance;
+  }
+
+  // Static getter for backward compatibility
+  static MedicationService get instance {
+    _instance = MedicationService(FirebaseFirestore.instance);
+    return _instance;
+  }
+
+  // For testing - allows injecting a mock Firestore
+  static void setInstance(MedicationService service) {
+    _instance = service;
+  }
 
   // ==================== MEDICATION CRUD ====================
 

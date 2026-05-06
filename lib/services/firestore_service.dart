@@ -11,7 +11,7 @@ class FirestoreService {
   // Made non-final so tests can inject a mock instance.
   static FirestoreService instance = FirestoreService._();
 
-  FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestore;
 
   /// Replace the active singleton with a test instance backed by [firestore].
   ///
@@ -21,7 +21,14 @@ class FirestoreService {
     instance = service;
   }
 
-  CollectionReference get users => _firestore.collection('users');
+  CollectionReference get users {
+    final firestore = _firestore;
+    if (firestore == null) {
+      throw StateError('Firestore is not available in this test instance.');
+    }
+
+    return firestore.collection('users');
+  }
 
   CollectionReference<Map<String, dynamic>> appointmentsForUser(String uid) {
     return users.doc(uid).collection('appointments');

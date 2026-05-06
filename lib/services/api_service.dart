@@ -9,7 +9,13 @@ class ApiService {
 
 	ApiService._();
 
-	static final ApiService instance = ApiService._();
+	// Made non-final so tests can inject a mock instance.
+	static ApiService instance = ApiService._();
+
+	/// Replace the active singleton with a test instance.
+	static void setInstanceForTesting(ApiService service) {
+		instance = service;
+	}
 
 	static const String _defaultWebBaseUrl = 'http://localhost:8080';
 	static const String _defaultAndroidBaseUrl = 'http://10.0.2.2:8080';

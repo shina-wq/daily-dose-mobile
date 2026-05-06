@@ -9,7 +9,6 @@ class ProfileService {
   static final ProfileService instance = ProfileService._();
 
   final AuthService _authService = AuthService.instance;
-  final ApiService _apiService = ApiService.instance;
   final FirestoreService _firestoreService = FirestoreService.instance;
 
   String _requireUid() {
@@ -27,7 +26,7 @@ class ProfileService {
       throw StateError('No authenticated user found.');
     }
 
-    final data = await _apiService.fetchCurrentUserProfile(currentUser.uid);
+    final data = await ApiService.instance.fetchCurrentUserProfile(currentUser.uid);
     if (data == null) {
       return ProfileModel.empty(
         uid: currentUser.uid,
