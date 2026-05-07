@@ -20,6 +20,8 @@ import 'bottom_nav.dart';
 class AppRouter {
   AppRouter._();
 
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   static const String homeRoute = '/';
   static const String splashRoute = '/splash';
   static const String landingRoute = '/landing';

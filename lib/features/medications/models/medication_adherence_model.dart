@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class MedicationAdherenceModel {
   final String id;
   final String uid;
@@ -78,15 +80,27 @@ class MedicationAdherenceModel {
       uid: map['uid'] ?? '',
       medicationId: map['medicationId'] ?? '',
       medicationName: map['medicationName'] ?? '',
-      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      date: _parseDateTime(map['date']),
       totalDoses: map['totalDoses'] ?? 0,
       takenDoses: map['takenDoses'] ?? 0,
       missedDoses: map['missedDoses'] ?? 0,
       lateDoses: map['lateDoses'] ?? 0,
       missedStreak: map['missedStreak'] ?? 0,
       adherenceScore: (map['adherenceScore'] ?? 0.0).toDouble(),
-      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
+      createdAt: _parseDateTime(map['createdAt']),
     );
+  }
+
+  /// Helper method to parse DateTime from Timestamp or String
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is String) {
+      return DateTime.parse(value);
+    }
+    return DateTime.now();
   }
 
   MedicationAdherenceModel copyWith({

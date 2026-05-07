@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class MedicationModel {
   final String id;
   final String uid;
@@ -71,14 +73,26 @@ class MedicationModel {
       timeSlots: List<String>.from(map['timeSlots'] ?? []),
       reason: map['reason'],
       prescribedBy: map['prescribedBy'],
-      startDate: map['startDate'] != null ? DateTime.parse(map['startDate']) : null,
-      endDate: map['endDate'] != null ? DateTime.parse(map['endDate']) : null,
+      startDate: map['startDate'] != null ? _parseDateTime(map['startDate']) : null,
+      endDate: map['endDate'] != null ? _parseDateTime(map['endDate']) : null,
       isActive: map['isActive'] ?? true,
       sideEffects: List<String>.from(map['sideEffects'] ?? []),
       notes: map['notes'],
-      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      createdAt: _parseDateTime(map['createdAt']) ?? DateTime.now(),
+      updatedAt: map['updatedAt'] != null ? _parseDateTime(map['updatedAt']) : null,
     );
+  }
+
+  /// Helper method to parse DateTime from Timestamp or String
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is String) {
+      return DateTime.parse(value);
+    }
+    return null;
   }
 
   MedicationModel copyWith({

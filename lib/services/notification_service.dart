@@ -3,24 +3,148 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart' show Color;
+import '../core/navigation/app_router.dart';
 import '../features/medications/models/medication_notification_model.dart';
 import '../features/medications/models/medication_dose_model.dart';
 
+abstract class LocalNotificationClient {
+  Future<void> initialize({
+    required InitializationSettings settings,
+    required void Function(NotificationResponse response) onDidReceiveNotificationResponse,
+  });
+
+  Future<NotificationAppLaunchDetails?> getNotificationAppLaunchDetails();
+
+  Future<void> zonedSchedule({
+    required int id,
+    required String? title,
+    required String? body,
+    required tz.TZDateTime scheduledDate,
+    required NotificationDetails notificationDetails,
+    required AndroidScheduleMode androidScheduleMode,
+    String? payload,
+  });
+
+  Future<void> show({
+    required int id,
+    required String? title,
+    required String? body,
+    required NotificationDetails notificationDetails,
+    String? payload,
+  });
+
+  Future<void> cancel(int id);
+
+  Future<IOSFlutterLocalNotificationsPlugin?> resolveIosImplementation();
+}
+
+class FlutterLocalNotificationClient implements LocalNotificationClient {
+  FlutterLocalNotificationClient() : _plugin = FlutterLocalNotificationsPlugin();
+
+  final FlutterLocalNotificationsPlugin _plugin;
+
+  @override
+  Future<void> initialize({
+    required InitializationSettings settings,
+    required void Function(NotificationResponse response) onDidReceiveNotificationResponse,
+  }) {
+    return _plugin.initialize(
+      settings: settings,
+      onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
+    );
+  }
+
+  @override
+  Future<NotificationAppLaunchDetails?> getNotificationAppLaunchDetails() {
+    return _plugin.getNotificationAppLaunchDetails();
+  }
+
+  @override
+  Future<void> zonedSchedule({
+    required int id,
+    required String? title,
+    required String? body,
+    required tz.TZDateTime scheduledDate,
+    required NotificationDetails notificationDetails,
+    required AndroidScheduleMode androidScheduleMode,
+    String? payload,
+  }) {
+    return _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate,
+      notificationDetails: notificationDetails,
+      androidScheduleMode: androidScheduleMode,
+      payload: payload,
+    );
+  }
+
+  @override
+  Future<void> show({
+    required int id,
+    required String? title,
+    required String? body,
+    required NotificationDetails notificationDetails,
+    String? payload,
+  }) {
+    return _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+      payload: payload,
+    );
+  }
+
+  @override
+  Future<void> cancel(int id) {
+    return _plugin.cancel(id: id);
+  }
+
+  @override
+  Future<IOSFlutterLocalNotificationsPlugin?> resolveIosImplementation() {
+    return Future.value(
+      _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>(),
+    );
+  }
+}
+
 class NotificationService {
-  NotificationService._();
+  NotificationService._({
+    LocalNotificationClient? client,
+    FirebaseFirestore? firestore,
+    DateTime Function()? now,
+  })  : _client = client ?? FlutterLocalNotificationClient(),
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _now = now ?? DateTime.now;
+
   static final NotificationService instance = NotificationService._();
 
-  late final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  factory NotificationService.forTesting({
+    LocalNotificationClient? client,
+    FirebaseFirestore? firestore,
+    DateTime Function()? now,
+  }) {
+    return NotificationService._(
+      client: client,
+      firestore: firestore,
+      now: now,
+    );
+  }
+
+  final LocalNotificationClient _client;
+  final FirebaseFirestore _firestore;
+  final DateTime Function() _now;
   static const String _notificationsCollection = 'medication_notifications';
 
   bool _isInitialized = false;
+  String? _pendingNotificationRoute;
+  void Function(String route)? onNotificationTapped;
 
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
-
-    _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
     // Android initialization
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -39,20 +163,25 @@ class NotificationService {
       iOS: initializationSettingsIOS,
     );
 
-    await _flutterLocalNotificationsPlugin.initialize(
+    await _client.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
     );
 
+    final launchDetails = await _client.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp == true) {
+      _pendingNotificationRoute = resolveNotificationRoute(
+        launchDetails?.notificationResponse?.payload,
+      );
+    }
+
     // Request iOS permissions
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
+    final iosImplementation = await _client.resolveIosImplementation();
+    await iosImplementation?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     _isInitialized = true;
   }
@@ -69,16 +198,30 @@ class NotificationService {
       final notificationTime = dose.scheduledTime.subtract(const Duration(minutes: 5));
 
       // Only schedule if the notification time is in the future
-      if (notificationTime.isBefore(DateTime.now())) {
+      if (notificationTime.isBefore(_now())) {
         return;
       }
 
       final notificationId = dose.id.hashCode;
+      final notificationDocId = _reminderNotificationDocId(dose.id);
+      final existingNotification = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection(_notificationsCollection)
+          .doc(notificationDocId)
+          .get();
+
+      if (existingNotification.exists) {
+        return;
+      }
+
       final message = 'Time to take ${dose.medicationName}';
       final body = 'Dosage: ${dose.dosage}';
+      final actionUrl = '/medications/${dose.medicationId}/dose/${dose.id}';
 
       // Schedule local notification
-      await _flutterLocalNotificationsPlugin.zonedSchedule(
+      await _client.cancel(notificationId);
+      await _client.zonedSchedule(
         id: notificationId,
         title: 'Medication Reminder',
         body: '$message - $body',
@@ -107,11 +250,12 @@ class NotificationService {
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exact,
+        payload: actionUrl,
       );
 
       // Store notification in Firestore
       final notification = MedicationNotificationModel(
-        id: const Uuid().v4(),
+        id: notificationDocId,
         uid: uid,
         medicationId: dose.medicationId,
         medicationName: dose.medicationName,
@@ -120,9 +264,9 @@ class NotificationService {
         message: '$message - $body',
         scheduledTime: notificationTime,
         isSent: true,
-        sentTime: DateTime.now(),
-        actionUrl: '/medications/${dose.medicationId}/dose/${dose.id}',
-        createdAt: DateTime.now(),
+        sentTime: _now(),
+        actionUrl: actionUrl,
+        createdAt: _now(),
       );
 
       await _saveNotification(uid, notification);
@@ -134,7 +278,7 @@ class NotificationService {
   /// Schedule medication reminders for all pending doses
   Future<void> scheduleAllPendingReminders(String uid) async {
     try {
-      final now = DateTime.now();
+      final now = _now();
       final tomorrow = now.add(const Duration(days: 1));
 
       final snapshot = await _firestore
@@ -142,12 +286,13 @@ class NotificationService {
           .doc(uid)
           .collection('medication_doses')
           .where('status', isEqualTo: 'pending')
-          .where('scheduledTime', isGreaterThanOrEqualTo: now)
-          .where('scheduledTime', isLessThan: tomorrow.add(const Duration(days: 1)))
           .get();
 
       for (final doc in snapshot.docs) {
         final dose = MedicationDoseModel.fromMap(doc.data());
+        if (dose.scheduledTime.isBefore(now) || dose.scheduledTime.isAfter(tomorrow)) {
+          continue;
+        }
         await scheduleMedicationReminder(uid, dose);
       }
     } catch (e) {
@@ -162,8 +307,9 @@ class NotificationService {
     try {
       final notificationId = '${dose.id}_missed'.hashCode;
       final message = '${dose.medicationName} was not taken at ${_formatTime(dose.scheduledTime)}';
+      final actionUrl = '/medications/${dose.medicationId}/dose/${dose.id}';
 
-      await _flutterLocalNotificationsPlugin.show(
+      await _client.show(
         id: notificationId,
         title: 'Missed Dose Alert',
         body: message,
@@ -183,6 +329,7 @@ class NotificationService {
             presentSound: true,
           ),
         ),
+        payload: actionUrl,
       );
 
       // Store notification in Firestore
@@ -194,11 +341,11 @@ class NotificationService {
         type: NotificationType.missedDose,
         title: 'Missed Dose Alert',
         message: message,
-        scheduledTime: DateTime.now(),
+        scheduledTime: _now(),
         isSent: true,
-        sentTime: DateTime.now(),
-        actionUrl: '/medications/${dose.medicationId}/dose/${dose.id}',
-        createdAt: DateTime.now(),
+        sentTime: _now(),
+        actionUrl: actionUrl,
+        createdAt: _now(),
       );
 
       await _saveNotification(uid, notification);
@@ -229,7 +376,7 @@ class NotificationService {
         message = '⚠️ You\'ve missed $medicationName for $streakDays consecutive days. Try to get back on track.';
       }
 
-      await _flutterLocalNotificationsPlugin.show(
+      await _client.show(
         id: notificationId,
         title: 'Medication Adherence Warning',
         body: message,
@@ -259,11 +406,11 @@ class NotificationService {
         type: NotificationType.streakWarning,
         title: 'Medication Adherence Warning',
         message: message,
-        scheduledTime: DateTime.now(),
+        scheduledTime: _now(),
         isSent: true,
-        sentTime: DateTime.now(),
+        sentTime: _now(),
         missedStreak: streakDays,
-        createdAt: DateTime.now(),
+        createdAt: _now(),
       );
 
       await _saveNotification(uid, notification);
@@ -283,11 +430,12 @@ class NotificationService {
     int missedDoses,
   ) async {
     try {
-      final notificationId = 'daily_report_${DateTime.now().day}'.hashCode;
+      final notificationId = 'daily_report_${_now().day}'.hashCode;
+      final now = _now();
       final adherenceStatus = _getAdherenceStatus(adherenceScore);
       final message = 'Adherence: $adherenceScore% | Today: $takenDoses/$totalDoses doses taken';
 
-      await _flutterLocalNotificationsPlugin.show(
+      await _client.show(
         id: notificationId,
         title: 'Daily Adherence Report',
         body: message,
@@ -315,10 +463,10 @@ class NotificationService {
         type: NotificationType.adherenceReport,
         title: 'Daily Adherence Report - $adherenceStatus',
         message: message,
-        scheduledTime: DateTime.now(),
+        scheduledTime: now,
         isSent: true,
-        sentTime: DateTime.now(),
-        createdAt: DateTime.now(),
+        sentTime: now,
+        createdAt: now,
       );
 
       await _saveNotification(uid, notification);
@@ -344,6 +492,32 @@ class NotificationService {
     } catch (e) {
       throw Exception('Failed to save notification: $e');
     }
+  }
+
+  String? consumePendingNotificationRoute() {
+    final route = _pendingNotificationRoute;
+    _pendingNotificationRoute = null;
+    return route;
+  }
+
+  static String resolveNotificationRoute(String? actionUrl) {
+    if (actionUrl == null || actionUrl.isEmpty) {
+      return AppRouter.notificationsRoute;
+    }
+
+    if (actionUrl.startsWith('/medications/')) {
+      return AppRouter.medicationsRoute;
+    }
+
+    if (actionUrl.startsWith(AppRouter.notificationsRoute)) {
+      return AppRouter.notificationsRoute;
+    }
+
+    return AppRouter.homeRoute;
+  }
+
+  String _reminderNotificationDocId(String doseId) {
+    return 'reminder_$doseId';
   }
 
   /// Get all notifications for a user
@@ -456,9 +630,19 @@ class NotificationService {
   // ==================== NOTIFICATION RESPONSE HANDLERS ====================
 
   void _onDidReceiveNotificationResponse(NotificationResponse notificationResponse) {
+    final route = resolveNotificationRoute(notificationResponse.payload);
+
     if (notificationResponse.actionId == 'mark_taken') {
       // Handle mark as taken action
       // Extract dose ID from payload and mark as taken
+      return;
     }
+
+    if (onNotificationTapped != null) {
+      onNotificationTapped!(route);
+      return;
+    }
+
+    _pendingNotificationRoute = route;
   }
 }

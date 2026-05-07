@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum DoseStatus {
   pending, // Not yet taken
   taken, // Taken on time
@@ -65,12 +67,24 @@ class MedicationDoseModel {
       medicationId: map['medicationId'] ?? '',
       medicationName: map['medicationName'] ?? '',
       dosage: map['dosage'] ?? '',
-      scheduledTime: DateTime.parse(map['scheduledTime'] ?? DateTime.now().toIso8601String()),
-      takenTime: map['takenTime'] != null ? DateTime.parse(map['takenTime']) : null,
+      scheduledTime: _parseDateTime(map['scheduledTime']),
+      takenTime: map['takenTime'] != null ? _parseDateTime(map['takenTime']) : null,
       status: _parseStatus(map['status']),
       notes: map['notes'],
-      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
+      createdAt: _parseDateTime(map['createdAt']),
     );
+  }
+
+  /// Helper method to parse DateTime from Timestamp or String
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is String) {
+      return DateTime.parse(value);
+    }
+    return DateTime.now();
   }
 
   static DoseStatus _parseStatus(String? statusStr) {

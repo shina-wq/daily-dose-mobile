@@ -337,13 +337,17 @@ class MedicationService {
     try {
       final startOfDay = DateTime(date.year, date.month, date.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
+      
+    // Use ISO8601 strings for Firestore comparison
+    final startOfDayStr = startOfDay.toIso8601String();
+    final endOfDayStr = endOfDay.toIso8601String();
 
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(uid)
-          .collection(_dosesCollection)
-          .where('scheduledTime', isGreaterThanOrEqualTo: startOfDay)
-          .where('scheduledTime', isLessThan: endOfDay)
+    final snapshot = await _firestore
+      .collection('users')
+      .doc(uid)
+      .collection(_dosesCollection)
+      .where('scheduledTime', isGreaterThanOrEqualTo: startOfDayStr)
+      .where('scheduledTime', isLessThan: endOfDayStr)
           .orderBy('scheduledTime')
           .get();
 
@@ -399,16 +403,19 @@ class MedicationService {
 
   /// Calculate and update adherence for a specific medication and date
   Future<void> _updateAdherence(String uid, String medicationId, DateTime date) async {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final startOfDayStr = startOfDay.toIso8601String();
+      final endOfDayStr = endOfDay.toIso8601String();
+
     try {
       final doses = await _firestore
           .collection('users')
           .doc(uid)
           .collection(_dosesCollection)
           .where('medicationId', isEqualTo: medicationId)
-          .where('scheduledTime',
-              isGreaterThanOrEqualTo: DateTime(date.year, date.month, date.day))
-          .where('scheduledTime',
-              isLessThan: DateTime(date.year, date.month, date.day).add(const Duration(days: 1)))
+            .where('scheduledTime', isGreaterThanOrEqualTo: startOfDayStr)
+            .where('scheduledTime', isLessThan: endOfDayStr)
           .get();
 
       if (doses.docs.isEmpty) return;
@@ -427,16 +434,18 @@ class MedicationService {
       int missedStreak = 0;
       DateTime checkDate = date;
       while (checkDate.isAfter(date.subtract(const Duration(days: 365)))) {
+          final checkStartDay = DateTime(checkDate.year, checkDate.month, checkDate.day);
+          final checkEndDay = checkStartDay.add(const Duration(days: 1));
+          final checkStartDayStr = checkStartDay.toIso8601String();
+          final checkEndDayStr = checkEndDay.toIso8601String();
+        
         final checkDoses = await _firestore
             .collection('users')
             .doc(uid)
             .collection(_dosesCollection)
             .where('medicationId', isEqualTo: medicationId)
-            .where('scheduledTime',
-                isGreaterThanOrEqualTo: DateTime(checkDate.year, checkDate.month, checkDate.day))
-            .where('scheduledTime',
-                isLessThan:
-                    DateTime(checkDate.year, checkDate.month, checkDate.day).add(const Duration(days: 1)))
+            .where('scheduledTime', isGreaterThanOrEqualTo: checkStartDayStr)
+            .where('scheduledTime', isLessThan: checkEndDayStr)
             .get();
 
         if (checkDoses.docs.isEmpty) break;
@@ -483,11 +492,8 @@ class MedicationService {
           .doc(uid)
           .collection(_adherenceCollection)
           .where('medicationId', isEqualTo: medicationId)
-          .where('date',
-              isGreaterThanOrEqualTo: DateTime(date.year, date.month, date.day))
-          .where('date',
-              isLessThan:
-                  DateTime(date.year, date.month, date.day).add(const Duration(days: 1)))
+            .where('date', isGreaterThanOrEqualTo: startOfDayStr)
+            .where('date', isLessThan: endOfDayStr)
           .get();
 
       if (existing.docs.isNotEmpty) {
