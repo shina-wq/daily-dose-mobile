@@ -58,7 +58,12 @@ class _DashboardBody extends ConsumerWidget {
                       hasUnreadNotifications: home.hasUnreadNotifications,
                     ),
                     const SizedBox(height: 18),
-                    _AiInsightCard(insight: home.aiInsight),
+                    _AiInsightCard(
+                      insight: home.aiInsight,
+                      summary: home.preVisitSummary,
+                    ),
+                    const SizedBox(height: 14),
+                    _PreVisitSummaryCard(summary: home.preVisitSummary),
                     const SizedBox(height: 14),
                     _QuickStatsRow(home: home),
                     const SizedBox(height: 20),
@@ -248,9 +253,13 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 class _AiInsightCard extends StatelessWidget {
-  const _AiInsightCard({required this.insight});
+  const _AiInsightCard({
+    required this.insight,
+    required this.summary,
+  });
 
   final String insight;
+  final PreVisitSummaryModel summary;
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +306,10 @@ class _AiInsightCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           InkWell(
-            onTap: () => Navigator.of(context).pushNamed(AppRouter.aiChatRoute),
+            onTap: () => Navigator.of(context).pushNamed(
+              AppRouter.preVisitSummaryRoute,
+              arguments: summary,
+            ),
             borderRadius: BorderRadius.circular(999),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -334,6 +346,191 @@ class _AiInsightCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PreVisitSummaryCard extends StatelessWidget {
+  const _PreVisitSummaryCard({required this.summary});
+
+  final PreVisitSummaryModel summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3EAF8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFEAF2FF),
+                ),
+                child: const Icon(
+                  AppIcons.description_outlined,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  summary.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            summary.overview,
+            style: const TextStyle(
+              fontSize: 13.5,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SummarySection(title: 'Medications', items: summary.medications),
+          const SizedBox(height: 10),
+          _SummarySection(title: 'Symptoms', items: summary.symptoms),
+          const SizedBox(height: 10),
+          _SummarySection(title: 'Insights', items: summary.insights),
+          const SizedBox(height: 10),
+          _SummarySection(title: 'Trends', items: summary.trends),
+          const SizedBox(height: 10),
+          _SummarySection(
+            title: 'Suggested Questions',
+            items: summary.suggestedQuestions,
+          ),
+          const SizedBox(height: 10),
+          _MissedDosePill(missedDoses: summary.missedDoses),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummarySection extends StatelessWidget {
+  const _SummarySection({required this.title, required this.items});
+
+  final String title;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: _SummaryDot(
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryDot extends StatelessWidget {
+  const _SummaryDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+    );
+  }
+}
+
+class _MissedDosePill extends StatelessWidget {
+  const _MissedDosePill({required this.missedDoses});
+
+  final int missedDoses;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = missedDoses > 0
+        ? '$missedDoses missed dose${missedDoses == 1 ? '' : 's'}'
+        : 'No missed doses detected';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: missedDoses > 0 ? const Color(0xFFFFF7ED) : const Color(0xFFE8F8F1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: missedDoses > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: missedDoses > 0 ? const Color(0xFFB45309) : const Color(0xFF047857),
+        ),
       ),
     );
   }

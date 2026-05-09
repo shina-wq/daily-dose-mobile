@@ -138,6 +138,103 @@ function deriveInsight({
   return `Adherence is at ${adherencePercent}% (${adherenceSubtitle.toLowerCase()}). ${symptomLine} ${appointmentLine}`;
 }
 
+function uniqueStrings(values) {
+  return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)));
+}
+
+function formatDoseLabel(dose) {
+  const dosage = String(dose.dosage || '').trim();
+  return dosage ? `${dose.name} (${dosage})` : dose.name;
+}
+
+function deriveSuggestedQuestions({ medications, symptoms, missedDoses, nextAppointmentDoctor }) {
+  const questions = [];
+  const firstMedication = medications[0] || 'my medications';
+  const firstSymptom = symptoms[0] || 'my recent symptoms';
+
+  questions.push(`Could any of ${firstMedication} be related to ${firstSymptom}?`);
+  questions.push(`What should I watch for if ${firstSymptom} gets worse before my visit?`);
+
+  if (missedDoses > 0) {
+    questions.push(`How should I get back on track after ${missedDoses} missed dose${missedDoses === 1 ? '' : 's'}?`);
+  } else {
+    questions.push('Is my current medication routine on track for this appointment?');
+  }
+
+  if (nextAppointmentDoctor) {
+    questions.push(`What should I ask ${nextAppointmentDoctor} about these symptoms and medications?`);
+  } else {
+    questions.push('What are the most important questions I should ask at my visit?');
+  }
+
+  return questions.slice(0, 4);
+}
+
+function derivePreVisitSummary({
+  userName,
+  medicationTiles,
+  healthLogs,
+  missedDoses,
+  adherencePercent,
+  adherenceSubtitle,
+  latestSymptom,
+  nextAppointmentDoctor,
+}) {
+  const medications = medicationTiles.length > 0
+    ? medicationTiles.map(formatDoseLabel)
+    : ['No active medications found'];
+
+  const symptoms = uniqueStrings(
+    healthLogs.map((log) => log.symptom).filter(Boolean),
+  ).slice(0, 4);
+
+  const insights = [
+    `Adherence is ${adherencePercent}% (${adherenceSubtitle.toLowerCase()}).`,
+    symptoms.length > 0
+      ? `Recent symptoms tracked: ${symptoms.join(', ')}.`
+      : 'No symptom logs were found in the current review window.',
+    missedDoses > 0
+      ? `${missedDoses} missed dose${missedDoses === 1 ? '' : 's'} were detected and should be discussed.`
+      : 'No missed doses were detected in the current review window.',
+  ];
+
+  const trends = [
+    medicationTiles.length > 0
+      ? `${medicationTiles.length} medication reminder${medicationTiles.length === 1 ? '' : 's'} are visible for review.`
+      : 'Medication data is limited, so this summary focuses on the available symptom logs.',
+    symptoms.length > 1
+      ? `Symptoms are recurring across logs: ${symptoms.slice(0, 2).join(', ')}.`
+      : 'Only minimal symptom trend data is available.',
+    latestSymptom
+      ? `Most recent symptom noted: ${latestSymptom}.`
+      : 'No recent symptom trend is available yet.',
+  ];
+
+  const overviewParts = [];
+  overviewParts.push(`${userName}'s pre-visit summary pulls together medications, symptoms, and missed doses.`);
+  if (nextAppointmentDoctor) {
+    overviewParts.push(`Use it to prepare for ${nextAppointmentDoctor}.`);
+  }
+
+  return {
+    title: nextAppointmentDoctor
+      ? `Pre-Visit Summary for ${nextAppointmentDoctor}`
+      : 'Pre-Visit Summary',
+    overview: overviewParts.join(' '),
+    medications,
+    symptoms: symptoms.length > 0 ? symptoms : ['No symptom data available'],
+    missedDoses,
+    insights,
+    trends,
+    suggestedQuestions: deriveSuggestedQuestions({
+      medications,
+      symptoms,
+      missedDoses,
+      nextAppointmentDoctor,
+    }),
+  };
+}
+
 function deriveProfileSummary(userData, recentHealthLogs) {
   const profileData = (userData.profile && typeof userData.profile === 'object')
     ? userData.profile
@@ -354,6 +451,18 @@ app.get('/api/home/:uid', async (req, res) => {
       nextAppointmentDate: upcomingAppointment?.appointmentDateTime || null,
     });
 
+    const missedDoses = todaysDoses.filter((dose) => dose.status === 'missed').length;
+    const preVisitSummary = derivePreVisitSummary({
+      userName,
+      medicationTiles,
+      healthLogs,
+      missedDoses,
+      adherencePercent,
+      adherenceSubtitle,
+      latestSymptom: latestHealthLog?.symptom || '',
+      nextAppointmentDoctor: upcomingAppointment?.doctorName || '',
+    });
+
     res.status(200).json({
       user: {
         id: uid,
@@ -374,6 +483,7 @@ app.get('/api/home/:uid', async (req, res) => {
         },
       },
       aiInsight: insight,
+      preVisitSummary,
       notifications: {
         hasUnread: !unreadNotificationsSnapshot.empty,
       },

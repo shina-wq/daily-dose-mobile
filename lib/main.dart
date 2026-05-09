@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
 import 'core/navigation/app_router.dart';
+import 'services/ai_service.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -16,6 +17,11 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  const geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
+  if (geminiApiKey.isNotEmpty) {
+    await AiService().storeApiKey(geminiApiKey);
+  }
 
   // Initialize notification service
   await NotificationService.instance.initialize();

@@ -10,6 +10,8 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/health_log/screens/health_log_screen.dart';
 import '../../features/health_log/screens/add_log_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
+import '../../features/dashboard/screens/pre_visit_summary_screen.dart';
+import '../../features/dashboard/models/home_dashboard_model.dart';
 import '../../features/medications/screens/medications_screen.dart';
 import '../../features/medications/screens/add_medication_screen.dart';
 import '../../features/onboarding/screens/onboarding_flow_screen.dart';
@@ -37,6 +39,7 @@ class AppRouter {
   static const String healthLogRoute = '/health-log';
   static const String addHealthLogRoute = '/health-log/add';
   static const String aiChatRoute = '/ai-chat';
+  static const String preVisitSummaryRoute = '/pre-visit-summary';
   static const String profileRoute = '/profile';
   static const String notificationsRoute = '/notifications';
 
@@ -100,6 +103,15 @@ class AppRouter {
 
       case aiChatRoute:
         return MaterialPageRoute(builder: (_) => const AiChatScreen());
+
+      case preVisitSummaryRoute:
+        return MaterialPageRoute(
+          builder: (_) => PreVisitSummaryScreen(
+            summary: settings.arguments is PreVisitSummaryModel
+                ? settings.arguments as PreVisitSummaryModel
+                : null,
+          ),
+        );
 
       case profileRoute:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());

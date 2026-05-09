@@ -3,9 +3,10 @@ import 'package:daily_dose_mobile/services/ai_service.dart';
 
 class AssistantService {
   final AiService _aiService;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
 
-  AssistantService(this._aiService);
+  AssistantService(this._aiService, {FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Initialize the AI assistant with user context from Firestore
   /// 
@@ -21,16 +22,22 @@ class AssistantService {
 
       final userData = userDoc.data() ?? {};
 
-      // Fetch active medications
+      // Fetch medications and include both legacy and current active flags.
       final medsSnapshot = await _firestore
           .collection('users')
           .doc(userId)
           .collection('medications')
-          .where('active', isEqualTo: true)
           .get();
 
-      final medicationNames =
-          medsSnapshot.docs.map((doc) => doc['name'] as String).toList();
+      final medicationNames = medsSnapshot.docs
+          .map((doc) => doc.data())
+          .where((data) {
+            final dynamic active = data['active'];
+            final dynamic isActive = data['isActive'];
+            return active == true || isActive == true;
+          })
+          .map((data) => data['name'] as String)
+          .toList();
 
       // Fetch health conditions if available
       final conditionsSnapshot = await _firestore
@@ -96,6 +103,8 @@ Important Guidelines:
 - If asked about drug interactions, recommend checking with their pharmacist or doctor
 - Acknowledge the user by name when appropriate to build rapport
 - Keep responses concise and easy to understand
+- Use language that makes your role clear, such as "I'm not a doctor, but I can help you prepare questions and next steps."
+- Do not make up medical facts, diagnoses, test results, or treatment outcomes; if uncertain, say you are unsure
 
 Remember: You are a support tool, not a replacement for professional medical advice.''';
   }
