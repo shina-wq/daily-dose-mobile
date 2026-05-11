@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/token_storage.dart';
+import '../../../core/utils/password_validator.dart';
 import '../../../core/providers/storage_provider.dart';
 import '../../../services/auth_service.dart';
 import '../providers/auth_controller.dart';

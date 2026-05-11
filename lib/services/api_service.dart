@@ -3,6 +3,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import '../core/utils/token_manager.dart';
+import '../core/navigation/app_router.dart';
+
+typedef OnTokenExpired = void Function();
 
 class ApiService {
 	ApiService();
@@ -11,6 +16,9 @@ class ApiService {
 
 	// Made non-final so tests can inject a mock instance.
 	static ApiService instance = ApiService._();
+	
+	// Callback when token expires
+	static OnTokenExpired? onTokenExpired;
 
 	/// Replace the active singleton with a test instance.
 	static void setInstanceForTesting(ApiService service) {
@@ -46,6 +54,8 @@ class ApiService {
 				.get(uri, headers: const {'Content-Type': 'application/json'})
 				.timeout(const Duration(seconds: 15));
 
+		_handleAuthError(response.statusCode);
+
 		final decoded = jsonDecode(response.body);
 		if (response.statusCode >= 400) {
 			final message = decoded is Map<String, dynamic>
@@ -68,6 +78,8 @@ class ApiService {
 				.get(uri, headers: const {'Content-Type': 'application/json'})
 				.timeout(const Duration(seconds: 15));
 
+		_handleAuthError(response.statusCode);
+
 		final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
 		if (response.statusCode == 404) {
 			return null;
@@ -85,5 +97,21 @@ class ApiService {
 		}
 
 		return decoded;
+	}
+
+	/// Handle authentication errors (401, 403)
+	void _handleAuthError(int statusCode) {
+		if (statusCode == 401 || statusCode == 403) {
+			// Token expired or unauthorized
+			_logout();
+			onTokenExpired?.call();
+			throw Exception('Session expired. Please log in again.');
+		}
+	}
+
+	/// Logout user when token is invalid
+	void _logout() {
+		FirebaseAuth.instance.signOut();
+		TokenManager.instance.clearTokens();
 	}
 }

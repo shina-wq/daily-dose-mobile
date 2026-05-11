@@ -13,6 +13,7 @@ class AuthFormField extends StatelessWidget {
 		this.suffixIcon,
 		this.controller,
 		this.validator,
+		this.onChanged,
 	});
 
 	final String label;
@@ -23,6 +24,7 @@ class AuthFormField extends StatelessWidget {
 	final Widget? suffixIcon;
 	final TextEditingController? controller;
 	final String? Function(String?)? validator;
+	final void Function(String)? onChanged;
 
 	@override
 	Widget build(BuildContext context) {
@@ -42,8 +44,7 @@ class AuthFormField extends StatelessWidget {
 					controller: controller,
 					keyboardType: keyboardType,
 					obscureText: obscureText,
-					validator: validator,
-					decoration: InputDecoration(
+					validator: validator,				onChanged: onChanged,					decoration: InputDecoration(
 						hintText: hintText,
 						hintStyle: const TextStyle(color: AppColors.textSecondary),
 						prefixIcon: Icon(prefixIcon, color: AppColors.textSecondary),

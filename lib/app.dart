@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
 import 'services/notification_service.dart';
+import 'services/api_service.dart';
 
 class DailyDoseApp extends StatefulWidget {
   const DailyDoseApp({super.key});
@@ -16,7 +17,18 @@ class _DailyDoseAppState extends State<DailyDoseApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _openPendingNotificationRoute();
+      _setupTokenExpiryHandler();
     });
+  }
+
+  void _setupTokenExpiryHandler() {
+    ApiService.onTokenExpired = () {
+      // Redirect to login when token expires
+      AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        AppRouter.loginRoute,
+        (route) => false,
+      );
+    };
   }
 
   void _openPendingNotificationRoute() {

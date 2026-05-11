@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_controller.dart';
 import '../../../core/utils/token_storage.dart';
+import '../../../core/utils/password_validator.dart';
 import '../../../core/providers/storage_provider.dart';
+import '../../../core/widgets/password_strength_indicator.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_icons.dart';
@@ -27,6 +29,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 	final TextEditingController _passwordController = TextEditingController();
 	final TextEditingController _confirmController = TextEditingController();
 	final TextEditingController _ageController = TextEditingController();
+
+	@override
+	void initState() {
+		super.initState();
+		// Rebuild when password changes to update strength indicator
+		_passwordController.addListener(() {
+			setState(() {});
+		});
+	}
 
 	@override
 	void dispose() {
@@ -146,11 +157,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 														hintText: 'Create a password',
 														prefixIcon: Icons.lock_outline_rounded,
 														obscureText: _obscurePassword,
-														validator: (v) {
-															if (v == null || v.isEmpty) return 'Password is required';
-															if (v.length < 8) return 'Password must be at least 8 characters';
-															return null;
-														},
+														onChanged: (_) => setState(() {}),
+														validator: (v) => PasswordValidator.getValidationError(v ?? ''),
 														suffixIcon: IconButton(
 															onPressed: () {
 																setState(() => _obscurePassword = !_obscurePassword);
@@ -163,7 +171,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 																),
 															),
 														),
-													const SizedBox(height: 18),
+													const SizedBox(height: 12),
+													Padding(
+														padding: const EdgeInsets.symmetric(horizontal: 0),
+														child: PasswordStrengthIndicator(
+															password: _passwordController.text,
+														),
+													),
 													AuthFormField(
 														label: 'Confirm Password',
 														controller: _confirmController,
@@ -190,9 +204,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 														),
 													const SizedBox(height: 8),
 													const Text(
-														'Must be at least 8 characters long.',
+														'Requirements: 8+ chars, uppercase, lowercase, number, special char',
 														style: TextStyle(
-															fontSize: 13,
+															fontSize: 12,
 															color: AppColors.textSecondary,
 														),
 													),
