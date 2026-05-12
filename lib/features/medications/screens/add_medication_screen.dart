@@ -146,6 +146,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 							ref.invalidate(medicationsProvider);
 							ref.invalidate(activeMedicationsProvider);
 							ref.invalidate(overallAdherenceProvider);
+							  ref.invalidate(weeklyAdherenceProvider);
 							ref.invalidate(pendingDosesProvider);
 							ref.invalidate(homeDashboardProvider);
 
@@ -193,6 +194,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 				ref.invalidate(medicationsProvider);
 				ref.invalidate(activeMedicationsProvider);
 				ref.invalidate(overallAdherenceProvider);
+				ref.invalidate(weeklyAdherenceProvider);
 				ref.invalidate(pendingDosesProvider);
 				ref.invalidate(homeDashboardProvider);
 				ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Medication deleted')));

@@ -14,7 +14,7 @@ class MedicationsScreen extends ConsumerWidget {
 	@override
 	Widget build(BuildContext context, WidgetRef ref) {
 		final todaysDoses = ref.watch(todaysDosesProvider);
-		final overallAdherence = ref.watch(overallAdherenceProvider);
+		final weeklyAdherence = ref.watch(weeklyAdherenceProvider);
 
 		return Scaffold(
 			backgroundColor: AppColors.background,
@@ -66,10 +66,10 @@ class MedicationsScreen extends ConsumerWidget {
 											),
 											const SizedBox(height: 16),
 											// Weekly Adherence Card
-											overallAdherence.when(
-												data: (adherence) => _buildAdherenceCard(adherence),
+											weeklyAdherence.when(
+												data: (summary) => _buildAdherenceCard(summary),
 												loading: () => const SizedBox(
-													height: 120,
+													height: 110,
 													child: Center(child: CircularProgressIndicator()),
 												),
 												error: (err, stack) => Container(
@@ -106,7 +106,9 @@ class MedicationsScreen extends ConsumerWidget {
 		);
 	}
 
-	Widget _buildAdherenceCard(double adherence) {
+	Widget _buildAdherenceCard(WeeklyAdherenceSummary summary) {
+		final today = DateTime.now();
+
 		return Container(
 			padding: const EdgeInsets.all(14),
 			decoration: BoxDecoration(
@@ -121,7 +123,7 @@ class MedicationsScreen extends ConsumerWidget {
 						mainAxisAlignment: MainAxisAlignment.spaceBetween,
 						children: [
 							const Text(
-								'Overall Adherence',
+								'Weekly Adherence',
 								style: TextStyle(
 									fontSize: 13,
 									fontWeight: FontWeight.w700,
@@ -129,7 +131,7 @@ class MedicationsScreen extends ConsumerWidget {
 								),
 							),
 							Text(
-								'${adherence.toStringAsFixed(0)}%',
+								'${summary.percent.toStringAsFixed(0)}%',
 								style: const TextStyle(
 									fontSize: 13,
 									fontWeight: FontWeight.w700,
@@ -138,21 +140,104 @@ class MedicationsScreen extends ConsumerWidget {
 							),
 						],
 					),
-					const SizedBox(height: 12),
-					ClipRRect(
-						borderRadius: BorderRadius.circular(8),
-						child: LinearProgressIndicator(
-							value: adherence / 100,
-							minHeight: 8,
-							backgroundColor: const Color(0xFFF1F5F9),
-							valueColor: AlwaysStoppedAnimation<Color>(
-								adherence >= 75 ? AppColors.secondary : Color(0xFFF59E0B),
-							),
-						),
+					const SizedBox(height: 10),
+					Row(
+						mainAxisAlignment: MainAxisAlignment.spaceBetween,
+						children: summary.days.map((day) {
+							final isToday = day.date.year == today.year &&
+								day.date.month == today.month &&
+								day.date.day == today.day;
+
+							return Column(
+								children: [
+									Text(
+										_weekdayLabel(day.date.weekday),
+										style: const TextStyle(
+											fontSize: 12,
+											fontWeight: FontWeight.w500,
+											color: AppColors.textSecondary,
+										),
+									),
+									const SizedBox(height: 8),
+									_buildDayStatusCircle(day, isToday),
+								],
+							);
+						}).toList(),
 					),
 				],
 			),
 		);
+	}
+
+	Widget _buildDayStatusCircle(WeeklyAdherenceDay day, bool isToday) {
+		if (day.isComplete) {
+			return Container(
+				width: 28,
+				height: 28,
+				decoration: const BoxDecoration(
+					shape: BoxShape.circle,
+					color: AppColors.secondary,
+				),
+				child: const Icon(AppIcons.check, size: 16, color: AppColors.white),
+			);
+		}
+
+		if (day.isMissed) {
+			return Container(
+				width: 28,
+				height: 28,
+				decoration: BoxDecoration(
+					shape: BoxShape.circle,
+					color: const Color(0xFFFFF7ED),
+					border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+				),
+				child: const Icon(AppIcons.close, size: 16, color: Color(0xFFF59E0B)),
+			);
+		}
+
+		final bool hasDoses = day.totalDoses > 0;
+		return Container(
+			width: 28,
+			height: 28,
+			decoration: BoxDecoration(
+				shape: BoxShape.circle,
+				color: hasDoses ? AppColors.white : const Color(0xFFF8FAFC),
+				border: Border.all(
+					color: isToday ? AppColors.primary : AppColors.border,
+					width: isToday ? 1.5 : 1,
+				),
+			),
+			alignment: Alignment.center,
+			child: Text(
+				'${day.date.day}',
+				style: TextStyle(
+					fontSize: 11,
+					fontWeight: FontWeight.w600,
+					color: isToday ? AppColors.primary : AppColors.textSecondary,
+				),
+			),
+		);
+	}
+
+	String _weekdayLabel(int weekday) {
+		switch (weekday) {
+			case DateTime.monday:
+				return 'M';
+			case DateTime.tuesday:
+				return 'T';
+			case DateTime.wednesday:
+				return 'W';
+			case DateTime.thursday:
+				return 'T';
+			case DateTime.friday:
+				return 'F';
+			case DateTime.saturday:
+				return 'S';
+			case DateTime.sunday:
+				return 'S';
+			default:
+				return '';
+		}
 	}
 
 	Widget _buildMedicationsList(List<MedicationDoseModel> doses) {
@@ -354,6 +439,7 @@ class _MedicationRowWithDose extends ConsumerWidget {
 											ref.invalidate(medicationsProvider);
 											ref.invalidate(activeMedicationsProvider);
 											ref.invalidate(overallAdherenceProvider);
+													ref.invalidate(weeklyAdherenceProvider);
 											ref.invalidate(pendingDosesProvider);
 											ref.invalidate(homeDashboardProvider);
 											ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Medication deleted')));
@@ -476,6 +562,7 @@ class _DoseActionBottomSheet extends ConsumerWidget {
 																	ref.invalidate(todaysDosesProvider);
 																	ref.invalidate(pendingDosesProvider);
 																	ref.invalidate(overallAdherenceProvider);
+																	ref.invalidate(weeklyAdherenceProvider);
 																	ref.invalidate(homeDashboardProvider);
 																	Navigator.of(context).pop();
 																}
@@ -506,6 +593,7 @@ class _DoseActionBottomSheet extends ConsumerWidget {
 																	ref.invalidate(todaysDosesProvider);
 																	ref.invalidate(pendingDosesProvider);
 																	ref.invalidate(overallAdherenceProvider);
+																	ref.invalidate(weeklyAdherenceProvider);
 																	ref.invalidate(homeDashboardProvider);
 																	Navigator.of(context).pop();
 																}

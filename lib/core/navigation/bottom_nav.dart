@@ -26,14 +26,6 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
     _NavTab(label: 'Profile', icon: AppIcons.person_rounded),
   ];
 
-  static const _pages = <Widget>[
-    DashboardScreen(),
-    MedicationsScreen(),
-    AppointmentsScreen(),
-    AiChatScreen(),
-    ProfileScreen(),
-  ];
-
   late int _currentIndex;
 
   @override
@@ -46,7 +38,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: _buildCurrentPage(),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
@@ -102,6 +94,23 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
         ),
       ),
     );
+  }
+
+  Widget _buildCurrentPage() {
+    switch (_currentIndex) {
+      case 0:
+        return const DashboardScreen();
+      case 1:
+        return const MedicationsScreen();
+      case 2:
+        return const AppointmentsScreen();
+      case 3:
+        return const AiChatScreen();
+      case 4:
+        return const ProfileScreen();
+      default:
+        return const DashboardScreen();
+    }
   }
 }
 

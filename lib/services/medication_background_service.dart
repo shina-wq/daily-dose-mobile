@@ -16,6 +16,8 @@ class MedicationBackgroundService {
 	/// Call this when user logs in or app starts
 	Future<void> initializeDailyTasks(String uid) async {
 		try {
+			await _medicationService.finalizeOverdueDoses(uid);
+
 			// Schedule reminders for today's pending doses
 			await _scheduleRemindersForToday(uid);
 
@@ -56,16 +58,7 @@ class MedicationBackgroundService {
 	/// Check for doses that were missed and send notifications
 	Future<void> _checkAndNotifyMissedDoses(String uid) async {
 		try {
-			final yesterday = DateTime.now().subtract(const Duration(days: 1));
-			final doses = await _medicationService.getDosesForDate(uid, yesterday);
-
-			for (final dose in doses) {
-				// If a dose is still pending, it's missed (it's now the next day)
-				if (dose.status == DoseStatus.pending) {
-					await _medicationService.markDoseMissed(uid, dose.id);
-					await _notificationService.notifyMissedDose(uid, dose);
-				}
-			}
+			await _medicationService.finalizeOverdueDoses(uid);
 		} catch (e) {
 			print('Error checking missed doses: $e');
 		}

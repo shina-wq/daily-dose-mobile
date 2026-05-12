@@ -6,6 +6,29 @@ import '../models/medication_adherence_model.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../dashboard/providers/home_provider.dart';
 
+class WeeklyAdherenceDay {
+  final DateTime date;
+  final int totalDoses;
+  final int completedDoses;
+  final bool isComplete;
+  final bool isMissed;
+
+  const WeeklyAdherenceDay({
+    required this.date,
+    required this.totalDoses,
+    required this.completedDoses,
+    required this.isComplete,
+    required this.isMissed,
+  });
+}
+
+class WeeklyAdherenceSummary {
+  final double percent;
+  final List<WeeklyAdherenceDay> days;
+
+  const WeeklyAdherenceSummary({required this.percent, required this.days});
+}
+
 /// Provider for the medication service
 final medicationServiceProvider = Provider<MedicationService>((ref) => MedicationService.instance);
 
@@ -47,8 +70,15 @@ final dosesForDateProvider = FutureProvider.autoDispose.family<List<MedicationDo
 
 /// Today's doses
 final todaysDosesProvider = FutureProvider.autoDispose<List<MedicationDoseModel>>((ref) async {
+  final auth = ref.watch(authStateProvider);
+  final uid = auth.asData?.value?.uid;
+  if (uid == null) return [];
+
+  final service = ref.watch(medicationServiceProvider);
+  await service.finalizeOverdueDoses(uid);
+
   final today = DateTime.now();
-  return ref.watch(dosesForDateProvider(today).future);
+  return service.getDosesForDate(uid, today);
 });
 
 /// Pending doses
@@ -57,6 +87,7 @@ final pendingDosesProvider = FutureProvider.autoDispose<List<MedicationDoseModel
   final uid = auth.asData?.value?.uid;
   if (uid == null) return [];
   final service = ref.watch(medicationServiceProvider);
+  await service.finalizeOverdueDoses(uid);
   return service.getPendingDoses(uid);
 });
 
@@ -94,6 +125,60 @@ final overallAdherenceProvider = FutureProvider.autoDispose<double>((ref) async 
   if (uid == null) return 0.0;
   final service = ref.watch(medicationServiceProvider);
   return service.getOverallAdherence(uid, days: 30);
+});
+
+/// Weekly adherence summary used by medications screen
+final weeklyAdherenceProvider = FutureProvider.autoDispose<WeeklyAdherenceSummary>((ref) async {
+  final auth = ref.watch(authStateProvider);
+  final uid = auth.asData?.value?.uid;
+  if (uid == null) {
+    return const WeeklyAdherenceSummary(percent: 0, days: []);
+  }
+
+  final service = ref.watch(medicationServiceProvider);
+  await service.finalizeOverdueDoses(uid);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final startDate = today.subtract(const Duration(days: 6));
+  final endDate = today.add(const Duration(days: 1));
+
+  final doses = await service.getDosesBetween(uid, startDate, endDate);
+
+  final Map<String, List<MedicationDoseModel>> byDay = {};
+  for (final dose in doses) {
+    final day = DateTime(dose.scheduledTime.year, dose.scheduledTime.month, dose.scheduledTime.day);
+    final key = day.toIso8601String();
+    byDay.putIfAbsent(key, () => []).add(dose);
+  }
+
+  final List<WeeklyAdherenceDay> days = List.generate(7, (index) {
+    final dayDate = startDate.add(Duration(days: index));
+    final key = DateTime(dayDate.year, dayDate.month, dayDate.day).toIso8601String();
+    final dayDoses = byDay[key] ?? const <MedicationDoseModel>[];
+
+    final total = dayDoses.length;
+    final completed = dayDoses
+        .where((d) => d.status == DoseStatus.taken || d.status == DoseStatus.late)
+        .length;
+
+    final isComplete = total > 0 && completed == total;
+    final isPastDay = dayDate.isBefore(today);
+    final isMissed = isPastDay && total > 0 && completed < total;
+
+    return WeeklyAdherenceDay(
+      date: dayDate,
+      totalDoses: total,
+      completedDoses: completed,
+      isComplete: isComplete,
+      isMissed: isMissed,
+    );
+  });
+
+  final totalDoses = days.fold<int>(0, (sum, d) => sum + d.totalDoses);
+  final completedDoses = days.fold<int>(0, (sum, d) => sum + d.completedDoses);
+  final percent = totalDoses == 0 ? 100.0 : (completedDoses / totalDoses) * 100;
+
+  return WeeklyAdherenceSummary(percent: percent.clamp(0, 100), days: days);
 });
 
 // ------------------ Simple action providers ------------------

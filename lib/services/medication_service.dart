@@ -205,7 +205,7 @@ class MedicationService {
           continue;
         }
 
-        final doseId = const Uuid().v4();
+        final doseId = _doseDocumentId(medication.id, scheduledTime);
         final dose = MedicationDoseModel(
           id: doseId,
           uid: uid,
@@ -447,6 +447,62 @@ class MedicationService {
           .toList();
     } catch (e) {
       throw Exception('Failed to get doses for date: $e');
+    }
+  }
+
+  /// Mark any pending doses that are already past due as missed.
+  Future<int> finalizeOverdueDoses(String uid) async {
+    try {
+      final now = DateTime.now();
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection(_dosesCollection)
+          .where('status', isEqualTo: DoseStatus.pending.toString().split('.').last)
+          .where('scheduledTime', isLessThan: now.toIso8601String())
+          .orderBy('scheduledTime')
+          .get();
+
+      if (snapshot.docs.isEmpty) return 0;
+
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.update(doc.reference, {
+          'status': DoseStatus.missed.toString().split('.').last,
+        });
+      }
+      await batch.commit();
+      return snapshot.docs.length;
+    } catch (e) {
+      throw Exception('Failed to finalize overdue doses: $e');
+    }
+  }
+
+  /// Get doses between two datetimes (start inclusive, end exclusive)
+  Future<List<MedicationDoseModel>> getDosesBetween(
+    String uid,
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) async {
+    try {
+      final startStr = startInclusive.toIso8601String();
+      final endStr = endExclusive.toIso8601String();
+
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection(_dosesCollection)
+          .where('scheduledTime', isGreaterThanOrEqualTo: startStr)
+          .where('scheduledTime', isLessThan: endStr)
+          .orderBy('scheduledTime')
+          .get();
+
+      return snapshot.docs
+          .map((doc) => MedicationDoseModel.fromMap(doc.data()))
+          .whereType<MedicationDoseModel>()
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get doses between dates: $e');
     }
   }
 
@@ -703,6 +759,13 @@ class MedicationService {
     } catch (e) {
       throw Exception('Failed to delete medication adherence: $e');
     }
+  }
+
+  String _doseDocumentId(String medicationId, DateTime scheduledTime) {
+    final stamp =
+        '${scheduledTime.year.toString().padLeft(4, '0')}${scheduledTime.month.toString().padLeft(2, '0')}${scheduledTime.day.toString().padLeft(2, '0')}_'
+        '${scheduledTime.hour.toString().padLeft(2, '0')}${scheduledTime.minute.toString().padLeft(2, '0')}';
+    return '${medicationId}_$stamp';
   }
 }
 
