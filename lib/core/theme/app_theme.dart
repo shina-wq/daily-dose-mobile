@@ -10,7 +10,6 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      fontFamily: AppTextStyles.fontFamily,
       scaffoldBackgroundColor: AppColors.background,
 
       // ColorScheme.fromSeed generates a full M3-compliant color scheme
@@ -80,7 +79,7 @@ class AppTheme {
         ),
       ),
 
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         headlineLarge: AppTextStyles.headlineLarge,
         headlineMedium: AppTextStyles.headlineMedium,
         titleLarge: AppTextStyles.titleLarge,

@@ -117,6 +117,7 @@ class MedicationService {
     MedicationModel medication,
   ) async {
     try {
+      final existingMedication = await getMedicationById(uid, medication.id);
       final updatedMedication = medication.copyWith(updatedAt: DateTime.now());
 
       await _firestore
@@ -125,6 +126,12 @@ class MedicationService {
           .collection(_medicationsCollection)
           .doc(medication.id)
           .update(updatedMedication.toMap());
+
+      await _updateMedicationDoseMetadata(uid, updatedMedication);
+
+      if (existingMedication != null && !_listEquals(existingMedication.timeSlots, updatedMedication.timeSlots)) {
+        await _replaceUpcomingDoses(uid, updatedMedication);
+      }
 
       return updatedMedication;
     } catch (e) {
@@ -175,8 +182,9 @@ class MedicationService {
   Future<void> _createDosesForDay(
     String uid,
     MedicationModel medication,
-    DateTime date,
-  ) async {
+    DateTime date, {
+    DateTime? onlyAfter,
+  }) async {
     try {
       final batch = _firestore.batch();
 
@@ -192,6 +200,10 @@ class MedicationService {
           hour,
           minute,
         );
+
+        if (onlyAfter != null && !scheduledTime.isAfter(onlyAfter)) {
+          continue;
+        }
 
         final doseId = const Uuid().v4();
         final dose = MedicationDoseModel(
@@ -219,6 +231,84 @@ class MedicationService {
     } catch (e) {
       throw Exception('Failed to create doses for day: $e');
     }
+  }
+
+  Future<void> _replaceUpcomingDoses(String uid, MedicationModel medication) async {
+    try {
+      final now = DateTime.now();
+      final nowStr = now.toIso8601String();
+
+      final futureDoses = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection(_dosesCollection)
+          .where('medicationId', isEqualTo: medication.id)
+          .where('scheduledTime', isGreaterThanOrEqualTo: nowStr)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in futureDoses.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      final today = DateTime(now.year, now.month, now.day);
+      for (int i = 0; i < 30; i++) {
+        final date = today.add(Duration(days: i));
+        await _createDosesForDay(
+          uid,
+          medication,
+          date,
+          onlyAfter: i == 0 ? now : null,
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to replace upcoming doses: $e');
+    }
+  }
+
+  Future<void> _updateMedicationDoseMetadata(String uid, MedicationModel medication) async {
+    try {
+      final doses = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection(_dosesCollection)
+          .where('medicationId', isEqualTo: medication.id)
+          .get();
+
+      final adherence = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection(_adherenceCollection)
+          .where('medicationId', isEqualTo: medication.id)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in doses.docs) {
+        batch.update(doc.reference, {
+          'medicationName': medication.name,
+          'dosage': medication.dosage,
+        });
+      }
+
+      for (final doc in adherence.docs) {
+        batch.update(doc.reference, {
+          'medicationName': medication.name,
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to update medication dose metadata: $e');
+    }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   /// Schedule next 30 days of doses for a medication
@@ -513,8 +603,12 @@ class MedicationService {
             .doc(adherenceId)
             .set(adherence.toMap());
       }
-    } catch (e) {
-      throw Exception('Failed to update adherence: $e');
+    } catch (e, st) {
+      // Don't let adherence calculation failures block dose actions (e.g. missing Firestore index)
+      // Log for debugging but swallow the error so caller operations (mark taken/missed) succeed.
+      // ignore: avoid_print
+      print('Warning: Failed to update adherence: $e\n$st');
+      return;
     }
   }
 

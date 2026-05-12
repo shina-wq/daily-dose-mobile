@@ -4,6 +4,7 @@ import '../models/medication_model.dart';
 import '../models/medication_dose_model.dart';
 import '../models/medication_adherence_model.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../dashboard/providers/home_provider.dart';
 
 /// Provider for the medication service
 final medicationServiceProvider = Provider<MedicationService>((ref) => MedicationService.instance);
@@ -116,43 +117,62 @@ class MedicationFormState {
 
 /// Action providers for create/update/delete
 final createMedicationProvider = FutureProvider.family.autoDispose<void, MedicationModel>((ref, medication) async {
-  final auth = ref.watch(authStateProvider);
+  final auth = ref.read(authStateProvider);
   final uid = auth.asData?.value?.uid;
   if (uid == null) throw Exception('Not authenticated');
-  final service = ref.watch(medicationServiceProvider);
+  final service = ref.read(medicationServiceProvider);
   await service.createMedication(uid, medication);
 });
 
 final updateMedicationProvider = FutureProvider.family.autoDispose<void, MedicationModel>((ref, medication) async {
-  final auth = ref.watch(authStateProvider);
+  final auth = ref.read(authStateProvider);
   final uid = auth.asData?.value?.uid;
   if (uid == null) throw Exception('Not authenticated');
-  final service = ref.watch(medicationServiceProvider);
+  final service = ref.read(medicationServiceProvider);
   await service.updateMedication(uid, medication);
 });
 
 final deleteMedicationProvider = FutureProvider.family.autoDispose<void, String>((ref, medicationId) async {
-  final auth = ref.watch(authStateProvider);
+  final auth = ref.read(authStateProvider);
   final uid = auth.asData?.value?.uid;
   if (uid == null) throw Exception('Not authenticated');
-  final service = ref.watch(medicationServiceProvider);
-  await service.deleteMedication(uid, medicationId);
+  final service = ref.read(medicationServiceProvider);
+  try {
+    await service.deleteMedication(uid, medicationId);
+  } catch (e, st) {
+    // ignore: avoid_print
+    print('deleteMedicationProvider error: $e\n$st');
+    rethrow;
+  }
 });
 
 /// Dose action providers
-final markDoseTakenProvider = FutureProvider.family.autoDispose<void, String>((ref, doseId) async {
-  final auth = ref.watch(authStateProvider);
+final markDoseTakenProvider = FutureProvider.family<void, String>((ref, doseId) async {
+  final auth = ref.read(authStateProvider);
   final uid = auth.asData?.value?.uid;
   if (uid == null) throw Exception('Not authenticated');
-  final service = ref.watch(medicationServiceProvider);
-  await service.markDoseTaken(uid, doseId);
+  final service = ref.read(medicationServiceProvider);
+  try {
+    await service.markDoseTaken(uid, doseId);
+  } catch (e, st) {
+    // Log and rethrow so callers can show UI feedback
+    // ignore: avoid_print
+    print('markDoseTakenProvider error: $e\n$st');
+    rethrow;
+  }
 });
 
-final markDoseMissedProvider = FutureProvider.family.autoDispose<void, String>((ref, doseId) async {
-  final auth = ref.watch(authStateProvider);
+final markDoseMissedProvider = FutureProvider.family<void, String>((ref, doseId) async {
+  final auth = ref.read(authStateProvider);
   final uid = auth.asData?.value?.uid;
   if (uid == null) throw Exception('Not authenticated');
-  final service = ref.watch(medicationServiceProvider);
-  await service.markDoseMissed(uid, doseId);
+  final service = ref.read(medicationServiceProvider);
+  try {
+    await service.markDoseMissed(uid, doseId);
+  } catch (e, st) {
+    // ignore: avoid_print
+    print('markDoseMissedProvider error: $e\n$st');
+    rethrow;
+  }
 });
 

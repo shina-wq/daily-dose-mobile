@@ -7,11 +7,15 @@ import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../../dashboard/providers/home_provider.dart';
 import '../models/medication_model.dart';
 import '../providers/medication_provider.dart';
 
 class AddMedicationScreen extends ConsumerStatefulWidget {
-	const AddMedicationScreen({super.key});
+	const AddMedicationScreen({super.key, this.medication, this.isEditing = false});
+
+	final MedicationModel? medication;
+	final bool isEditing;
 
 	@override
 	ConsumerState<AddMedicationScreen> createState() => _AddMedicationScreenState();
@@ -20,14 +24,17 @@ class AddMedicationScreen extends ConsumerStatefulWidget {
 class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 	final TextEditingController _nameController = TextEditingController();
 	final TextEditingController _doseController = TextEditingController(text: '10');
+	late final TextEditingController _frequencyController;
 	final TextEditingController _reasonController = TextEditingController();
 	final TextEditingController _notesController = TextEditingController();
 
 	int _selectedFormIndex = 0;
 	String _selectedUnit = 'mg';
 	bool _smartReminders = true;
-	final List<String> _reminderTimes = ['08:00'];
+	late List<String> _reminderTimes;
 	bool _isLoading = false;
+
+	bool get _isEditing => widget.isEditing;
 
 	final List<_FormChoice> _forms = [
 		_FormChoice(icon: AppIcons.medication_outlined, label: 'Pill'),
@@ -37,9 +44,26 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 	];
 
 	@override
+	void initState() {
+		super.initState();
+		final medication = widget.medication;
+		_reminderTimes = medication?.timeSlots.isNotEmpty == true ? List<String>.from(medication!.timeSlots) : ['08:00'];
+		_frequencyController = TextEditingController(text: medication?.frequency ?? _defaultFrequencyForTimes(_reminderTimes));
+		if (medication != null) {
+			_nameController.text = medication.name;
+			_doseController.text = _extractDoseValue(medication.dosage);
+			_selectedUnit = _extractDoseUnit(medication.dosage);
+			_reasonController.text = medication.reason ?? '';
+			_notesController.text = medication.notes ?? '';
+			_selectedFormIndex = _formIndexFromMedication(medication);
+		}
+	}
+
+	@override
 	void dispose() {
 		_nameController.dispose();
 		_doseController.dispose();
+		_frequencyController.dispose();
 		_reasonController.dispose();
 		_notesController.dispose();
 		super.dispose();
@@ -61,6 +85,13 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 			return;
 		}
 
+		if (_frequencyController.text.trim().isEmpty) {
+			ScaffoldMessenger.of(context).showSnackBar(
+				const SnackBar(content: Text('Please enter a frequency')),
+			);
+			return;
+		}
+
 		if (_reminderTimes.isEmpty) {
 			ScaffoldMessenger.of(context).showSnackBar(
 				const SnackBar(content: Text('Please add at least one reminder time')),
@@ -72,14 +103,9 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 
 		try {
 			final dosage = '${_doseController.text}$_selectedUnit';
-
-			// Determine frequency from reminder times
-			String frequency = 'once daily';
-			if (_reminderTimes.length == 2) {
-				frequency = 'twice daily';
-			} else if (_reminderTimes.length >= 3) {
-				frequency = '${_reminderTimes.length} times daily';
-			}
+			final frequency = _frequencyController.text.trim().isEmpty
+				? _defaultFrequencyForTimes(_reminderTimes)
+				: _frequencyController.text.trim();
 
 			final auth = ref.read(authStateProvider);
 			final uid = auth.asData?.value?.uid;
@@ -91,7 +117,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 			}
 
 			final medication = MedicationModel(
-				id: const Uuid().v4(),
+				id: widget.medication?.id ?? const Uuid().v4(),
 				uid: uid,
 				name: _nameController.text,
 				dosage: dosage,
@@ -99,19 +125,36 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 				timeSlots: _reminderTimes,
 				reason: _reasonController.text.isEmpty ? null : _reasonController.text,
 				notes: _notesController.text.isEmpty ? null : _notesController.text,
-				startDate: DateTime.now(),
-				createdAt: DateTime.now(),
+				startDate: widget.medication?.startDate ?? DateTime.now(),
+				endDate: widget.medication?.endDate,
+				isActive: widget.medication?.isActive ?? true,
+				sideEffects: widget.medication?.sideEffects ?? const [],
+				prescribedBy: widget.medication?.prescribedBy,
+				createdAt: widget.medication?.createdAt ?? DateTime.now(),
+				updatedAt: widget.isEditing ? DateTime.now() : null,
 			);
 
-			// Trigger the create action provider
-			await ref.read(createMedicationProvider(medication).future);
-
-			if (mounted) {
-				ScaffoldMessenger.of(context).showSnackBar(
-					const SnackBar(content: Text('Medication saved successfully')),
-				);
-				Navigator.of(context).pop();
+			if (_isEditing) {
+				await ref.read(updateMedicationProvider(medication).future);
+			} else {
+				await ref.read(createMedicationProvider(medication).future);
 			}
+
+						// Refresh medication-related queries so the previous screen shows new data.
+						if (mounted) {
+							ref.invalidate(todaysDosesProvider);
+							ref.invalidate(medicationsProvider);
+							ref.invalidate(activeMedicationsProvider);
+							ref.invalidate(overallAdherenceProvider);
+							ref.invalidate(pendingDosesProvider);
+							ref.invalidate(homeDashboardProvider);
+
+							ScaffoldMessenger.of(context).showSnackBar(
+								SnackBar(content: Text(_isEditing ? 'Medication updated successfully' : 'Medication saved successfully')),
+							);
+							Navigator.of(context).pop();
+						}
+            
 		} catch (e) {
 			if (mounted) {
 				ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +165,45 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 			if (mounted) {
 				setState(() => _isLoading = false);
 			}
+		}
+	}
+
+	Future<void> _deleteMedication() async {
+		final confirm = await showDialog<bool>(
+			context: context,
+			builder: (ctx) => AlertDialog(
+				title: const Text('Delete medication'),
+				content: const Text('This will delete the medication and all related doses. Continue?'),
+				actions: [
+					TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+					TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+				],
+			),
+		);
+
+		if (confirm != true) return;
+
+		setState(() => _isLoading = true);
+		try {
+			final medicationId = widget.medication?.id;
+			if (medicationId == null) return;
+			await ref.read(deleteMedicationProvider(medicationId).future);
+			if (mounted) {
+				ref.invalidate(todaysDosesProvider);
+				ref.invalidate(medicationsProvider);
+				ref.invalidate(activeMedicationsProvider);
+				ref.invalidate(overallAdherenceProvider);
+				ref.invalidate(pendingDosesProvider);
+				ref.invalidate(homeDashboardProvider);
+				ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Medication deleted')));
+				Navigator.of(context).pop();
+			}
+		} catch (e) {
+			if (mounted) {
+				ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+			}
+		} finally {
+			if (mounted) setState(() => _isLoading = false);
 		}
 	}
 
@@ -169,8 +251,8 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 														icon: const Icon(AppIcons.arrow_back),
 													),
 													const SizedBox(width: 4),
-													const Text(
-														'Add Medication',
+													Text(
+														_isEditing ? 'Edit Medication' : 'Add Medication',
 														style: TextStyle(
 															fontSize: 21,
 															fontWeight: FontWeight.w700,
@@ -278,6 +360,14 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 														),
 													),
 												],
+											),
+											const SizedBox(height: 16),
+											const _Label('Frequency'),
+											const SizedBox(height: 8),
+											TextField(
+												controller: _frequencyController,
+												enabled: !_isLoading,
+												decoration: _fieldDecoration(hintText: 'e.g., once daily'),
 											),
 											const SizedBox(height: 16),
 											const _Label('Reason (Optional)'),
@@ -406,9 +496,26 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 																height: 20,
 																child: CircularProgressIndicator(strokeWidth: 2),
 															)
-														: const Text('Save Medication'),
+														: Text(_isEditing ? 'Save Changes' : 'Save Medication'),
 												),
 											),
+												if (_isEditing) ...[
+													const SizedBox(height: 12),
+													SizedBox(
+														height: AppDimensions.buttonHeight,
+														child: OutlinedButton(
+															onPressed: _isLoading ? null : _deleteMedication,
+															style: OutlinedButton.styleFrom(
+																foregroundColor: const Color(0xFFEF4444),
+																side: const BorderSide(color: Color(0xFFFECACA)),
+																shape: RoundedRectangleBorder(
+																	borderRadius: BorderRadius.circular(18),
+																),
+															),
+															child: const Text('Delete Medication'),
+														),
+													),
+												],
 										],
 									),
 								),
@@ -452,6 +559,32 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 		final period = hour >= 12 ? 'PM' : 'AM';
 		final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
 		return '$displayHour:$minute $period';
+	}
+
+	String _defaultFrequencyForTimes(List<String> times) {
+		if (times.length == 1) return 'once daily';
+		if (times.length == 2) return 'twice daily';
+		return '${times.length} times daily';
+	}
+
+	String _extractDoseValue(String dosage) {
+		final match = RegExp(r'^\d+(?:\.\d+)?').firstMatch(dosage);
+		return match?.group(0) ?? '10';
+	}
+
+	String _extractDoseUnit(String dosage) {
+		final match = RegExp(r'^\d+(?:\.\d+)?\s*(.*)$').firstMatch(dosage.trim());
+		final unit = match?.group(1)?.trim();
+		return (unit == null || unit.isEmpty) ? 'mg' : unit;
+	}
+
+	int _formIndexFromMedication(MedicationModel medication) {
+		final name = medication.name.toLowerCase();
+		final dosage = medication.dosage.toLowerCase();
+		if (name.contains('inject') || dosage.contains('inject')) return 3;
+		if (name.contains('liquid') || dosage.contains('ml')) return 2;
+		if (name.contains('capsule')) return 1;
+		return 0;
 	}
 
 	IconData _getTimeIcon(int hour) {

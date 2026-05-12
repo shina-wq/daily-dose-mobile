@@ -6,6 +6,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/medication_dose_model.dart';
 import '../providers/medication_provider.dart';
+import '../../dashboard/providers/home_provider.dart';
 
 class MedicationsScreen extends ConsumerWidget {
 	const MedicationsScreen({super.key});
@@ -314,6 +315,58 @@ class _MedicationRowWithDose extends ConsumerWidget {
 								],
 							),
 						),
+						// Edit and delete actions
+						Row(
+							children: [
+								IconButton(
+									padding: EdgeInsets.zero,
+									constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+									icon: const Icon(AppIcons.edit_outlined, size: 15, color: AppColors.textSecondary),
+									onPressed: () {
+								Navigator.of(context).pushNamed(
+									AppRouter.editMedicationRoute,
+									arguments: dose.medicationId,
+								);
+								},
+								),
+								const SizedBox(width: 2),
+								IconButton(
+									padding: EdgeInsets.zero,
+									constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+									icon: const Icon(AppIcons.close, size: 15, color: Color(0xFFEF4444)),
+									onPressed: () async {
+									final confirm = await showDialog<bool>(
+										context: context,
+										builder: (ctx) => AlertDialog(
+											title: const Text('Delete medication'),
+											content: const Text('Are you sure you want to delete this medication and its doses?'),
+											actions: [
+												TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+												TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+											],
+										),
+									);
+									if (confirm != true) return;
+									try {
+										await ref.read(deleteMedicationProvider(dose.medicationId).future);
+										if (context.mounted) {
+											ref.invalidate(todaysDosesProvider);
+											ref.invalidate(medicationsProvider);
+											ref.invalidate(activeMedicationsProvider);
+											ref.invalidate(overallAdherenceProvider);
+											ref.invalidate(pendingDosesProvider);
+											ref.invalidate(homeDashboardProvider);
+											ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Medication deleted')));
+										}
+									} catch (e) {
+										if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+									}
+								},
+								),
+								const SizedBox(width: 12),
+							],
+						),
+						// Status indicator
 						Container(
 							width: 24,
 							height: 24,
@@ -324,14 +377,14 @@ class _MedicationRowWithDose extends ConsumerWidget {
 									width: 1.5,
 								),
 								color: isDone || isLate || isMissed
-										? _getStatusColor(dose.status)
-										: AppColors.white,
+									? _getStatusColor(dose.status)
+									: AppColors.white,
 							),
 							child: isDone || isLate
-									? const Icon(AppIcons.check, size: 14, color: AppColors.white)
-									: isMissed
-										? const Icon(AppIcons.close, size: 14, color: AppColors.white)
-										: null,
+								? const Icon(AppIcons.check, size: 14, color: AppColors.white)
+								: isMissed
+									? const Icon(AppIcons.close, size: 14, color: AppColors.white)
+									: null,
 						),
 					],
 				),
@@ -402,10 +455,31 @@ class _DoseActionBottomSheet extends ConsumerWidget {
 					SizedBox(
 						width: double.infinity,
 						child: FilledButton(
-							onPressed: () async {
-								await ref.read(markDoseTakenProvider(dose.id).future);
-								if (context.mounted) Navigator.of(context).pop();
-							},
+												onPressed: () async {
+																try {
+																	await ref.read(markDoseTakenProvider(dose.id).future);
+																} catch (e, st) {
+																	// Surface error to user and keep sheet open for retry
+																	if (context.mounted) {
+																		ScaffoldMessenger.of(context).showSnackBar(
+																			SnackBar(content: Text('Failed to mark taken: $e')),
+																		);
+																	}
+																	// Also log to console for debugging
+																	// ignore: avoid_print
+																	print('markDoseTaken error: $e\n$st');
+																	return;
+																}
+
+																// Refresh providers so UI updates immediately
+																if (context.mounted) {
+																	ref.invalidate(todaysDosesProvider);
+																	ref.invalidate(pendingDosesProvider);
+																	ref.invalidate(overallAdherenceProvider);
+																	ref.invalidate(homeDashboardProvider);
+																	Navigator.of(context).pop();
+																}
+														},
 							child: const Text('Mark as Taken'),
 						),
 					),
@@ -413,10 +487,29 @@ class _DoseActionBottomSheet extends ConsumerWidget {
 					SizedBox(
 						width: double.infinity,
 						child: OutlinedButton(
-							onPressed: () async {
-								await ref.read(markDoseMissedProvider(dose.id).future);
-								if (context.mounted) Navigator.of(context).pop();
-							},
+												onPressed: () async {
+																try {
+																	await ref.read(markDoseMissedProvider(dose.id).future);
+																} catch (e, st) {
+																	if (context.mounted) {
+																		ScaffoldMessenger.of(context).showSnackBar(
+																			SnackBar(content: Text('Failed to mark missed: $e')),
+																		);
+																	}
+																	// ignore: avoid_print
+																	print('markDoseMissed error: $e\n$st');
+																	return;
+																}
+
+																// Refresh providers so UI updates immediately
+																if (context.mounted) {
+																	ref.invalidate(todaysDosesProvider);
+																	ref.invalidate(pendingDosesProvider);
+																	ref.invalidate(overallAdherenceProvider);
+																	ref.invalidate(homeDashboardProvider);
+																	Navigator.of(context).pop();
+																}
+														},
 							child: const Text('Mark as Missed'),
 						),
 					),

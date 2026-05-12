@@ -14,6 +14,7 @@ import '../../features/dashboard/screens/pre_visit_summary_screen.dart';
 import '../../features/dashboard/models/home_dashboard_model.dart';
 import '../../features/medications/screens/medications_screen.dart';
 import '../../features/medications/screens/add_medication_screen.dart';
+import '../../features/medications/screens/edit_medication_screen.dart';
 import '../../features/onboarding/screens/onboarding_flow_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
@@ -33,6 +34,7 @@ class AppRouter {
   static const String forgotPasswordRoute = '/forgot-password';
   static const String medicationsRoute = '/medications';
   static const String addMedicationRoute = '/medications/add';
+  static const String editMedicationRoute = '/medications/edit';
   static const String appointmentsRoute = '/appointments';
   static const String addAppointmentRoute = '/appointments/add';
   static const String appointmentDetailRoute = '/appointments/detail';
@@ -67,10 +69,17 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
 
       case medicationsRoute:
-        return MaterialPageRoute(builder: (_) => const MedicationsScreen());
+        return MaterialPageRoute(builder: (_) => const AppNavigationShell(initialIndex: 1));
 
       case addMedicationRoute:
         return MaterialPageRoute(builder: (_) => const AddMedicationScreen());
+
+      case editMedicationRoute:
+        return MaterialPageRoute(
+          builder: (_) => EditMedicationScreen(
+            medicationId: settings.arguments is String ? settings.arguments as String : '',
+          ),
+        );
 
       case appointmentsRoute:
         return MaterialPageRoute(
