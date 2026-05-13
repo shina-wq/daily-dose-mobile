@@ -75,6 +75,18 @@ class AppointmentService {
 		});
 	}
 
+	Future<void> cancelAppointment({
+		String? uid,
+		required String appointmentId,
+	}) async {
+		final resolvedUid = _requireUid(uid);
+		final docRef = _collection(resolvedUid).doc(appointmentId);
+		await docRef.update({
+			'status': 'cancelled',
+			'updatedAt': Timestamp.fromDate(DateTime.now().toUtc()),
+		});
+	}
+
 	Future<void> deleteAppointment({
 		String? uid,
 		required String appointmentId,

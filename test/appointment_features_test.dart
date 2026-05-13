@@ -350,6 +350,48 @@ void main() {
       });
     });
 
+    // ==================== CANCEL APPOINTMENT ====================
+    group('Cancel Appointment', () {
+      test('Should mark an appointment as cancelled', () async {
+        final appointment = AppointmentModel(
+          id: '',
+          doctorName: 'Dr. Nina Patel',
+          specialty: 'Endocrinology',
+          appointmentDateTime: DateTime.now().add(const Duration(days: 4)),
+          durationMinutes: 40,
+          visitType: 'Telehealth',
+          reason: 'Follow-up visit',
+          status: 'upcoming',
+          location: null,
+          meetingLink: 'https://zoom.us/j/555555555',
+          avatarLabel: 'NP',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        final savedAppointment = await appointmentService.saveAppointment(
+          uid: testUid,
+          appointment: appointment,
+        );
+
+        await appointmentService.cancelAppointment(
+          uid: testUid,
+          appointmentId: savedAppointment.id,
+        );
+
+        final appointments = await appointmentService
+            .watchAppointments(uid: testUid)
+            .first;
+
+        final cancelled = appointments.firstWhere(
+          (apt) => apt.id == savedAppointment.id,
+        );
+
+        expect(cancelled.status, 'cancelled');
+        expect(cancelled.isCancelled, true);
+      });
+    });
+
     // ==================== APPOINTMENT STREAM & TIMELINE ====================
     group('Appointment Timeline & Stream', () {
       test('Should return all appointments in stream', () async {

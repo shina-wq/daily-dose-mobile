@@ -37,6 +37,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   Widget build(BuildContext context) {
     final appointment = widget.appointment;
     final isCompleted = appointment?.isCompleted ?? false;
+    final isCancelled = appointment?.isCancelled ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -123,8 +124,13 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                   if (appointment != null)
                     Center(
                       child: _StatusPill(
-                        label: isCompleted ? 'Completed' : 'Upcoming',
+                        label: isCancelled
+                            ? 'Cancelled'
+                            : isCompleted
+                                ? 'Completed'
+                                : 'Upcoming',
                         filled: isCompleted,
+                        cancelled: isCancelled,
                       ),
                     ),
                   const SizedBox(height: 14),
@@ -254,7 +260,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  if (appointment != null && !isCompleted) ...[
+                  if (appointment != null && !isCompleted && !isCancelled) ...[
                     const Text(
                       'Completion Notes',
                       style: TextStyle(
@@ -277,6 +283,19 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                           ),
                         ),
                         child: const Text('Mark Completed'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton(
+                        onPressed: _isSaving ? null : _cancelAppointment,
+                        child: const Text(
+                          'Cancel Appointment',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ] else if (appointment != null && isCompleted) ...[
@@ -302,19 +321,6 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  Center(
-                    child: TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        'Cancel Appointment',
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -365,6 +371,43 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     }
   }
 
+  Future<void> _cancelAppointment() async {
+    final appointment = widget.appointment;
+    if (appointment == null) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await AppointmentService.instance.cancelAppointment(
+        appointmentId: appointment.id,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Appointment cancelled.')),
+      );
+
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to cancel appointment: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final localDate = dateTime.toLocal();
     return '${MaterialLocalizations.of(context).formatMediumDate(localDate)} • ${TimeOfDay.fromDateTime(localDate).format(context)}';
@@ -372,17 +415,22 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.filled});
+  const _StatusPill({required this.label, required this.filled, this.cancelled = false});
 
   final String label;
   final bool filled;
+  final bool cancelled;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: filled ? const Color(0xFFE7F7F1) : const Color(0xFFFDF4E5),
+        color: cancelled
+            ? const Color(0xFFFEEBEA)
+            : filled
+                ? const Color(0xFFE7F7F1)
+                : const Color(0xFFFDF4E5),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -390,7 +438,11 @@ class _StatusPill extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: filled ? const Color(0xFF0B8F6C) : const Color(0xFFD97706),
+          color: cancelled
+              ? const Color(0xFFB42318)
+              : filled
+                  ? const Color(0xFF0B8F6C)
+                  : const Color(0xFFD97706),
         ),
       ),
     );

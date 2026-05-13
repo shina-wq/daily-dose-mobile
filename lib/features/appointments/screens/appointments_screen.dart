@@ -111,6 +111,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                                         avatarLabel: appointment.avatarLabel ?? _initials(appointment.doctorName),
                                         badgeText: _badgeText(appointment),
                                         location: appointment.location,
+                                        meetingLink: appointment.meetingLink,
                                         isHighlighted: _isHighlighted(appointment),
                                         primaryActionLabel: appointment.isCompleted ? 'View Notes' : 'Details',
                                         secondaryActionLabel: 'Edit',
@@ -130,9 +131,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                                           AppRouter.addAppointmentRoute,
                                           arguments: appointment,
                                         ),
-                                        footerHint: appointment.isCompleted
-                                            ? 'Completion notes saved on ${_formatShortDate(context, appointment.completedAt ?? appointment.updatedAt)}.'
-                                            : 'Tap edit to update the schedule or visit details.',
                                       ),
                                     ),
                                   )
@@ -154,6 +152,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   List<AppointmentModel> _filterAppointments(List<AppointmentModel> appointments) {
     final now = DateTime.now();
     final filtered = appointments.where((appointment) {
+      if (appointment.isCancelled) {
+        return false;
+      }
+
       final isPast = appointment.isCompleted || appointment.appointmentDateTime.isBefore(now);
       return _selectedTab == 0 ? !isPast : isPast;
     }).toList();
@@ -168,6 +170,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   String? _badgeText(AppointmentModel appointment) {
+    if (appointment.isCancelled) {
+      return 'Cancelled';
+    }
+
     if (appointment.isCompleted) {
       return 'Completed';
     }
@@ -187,7 +193,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   bool _isHighlighted(AppointmentModel appointment) {
-    return !appointment.isCompleted && appointment.appointmentDateTime.difference(DateTime.now()).inDays <= 1;
+    return !appointment.isCompleted &&
+        !appointment.isCancelled &&
+        appointment.appointmentDateTime.difference(DateTime.now()).inDays <= 1;
   }
 
   String _initials(String name) {

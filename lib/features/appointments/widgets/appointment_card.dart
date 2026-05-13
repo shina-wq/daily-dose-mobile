@@ -13,6 +13,7 @@ class AppointmentCard extends StatelessWidget {
     required this.avatarLabel,
     this.badgeText,
     this.location,
+    this.meetingLink,
     this.isHighlighted = false,
     this.primaryActionLabel,
     this.secondaryActionLabel,
@@ -32,6 +33,7 @@ class AppointmentCard extends StatelessWidget {
   final String avatarLabel;
   final String? badgeText;
   final String? location;
+  final String? meetingLink;
   final bool isHighlighted;
   final String? primaryActionLabel;
   final String? secondaryActionLabel;
@@ -127,6 +129,10 @@ class AppointmentCard extends StatelessWidget {
           if (location != null) ...[
             const SizedBox(height: 8),
             _MetaRow(icon: Icons.place_outlined, text: location!),
+          ],
+          if (meetingLink != null) ...[
+            const SizedBox(height: 8),
+            _MetaRow(icon: Icons.link, text: meetingLink!),
           ],
           if (primaryActionLabel != null || secondaryActionLabel != null) ...[
             const SizedBox(height: 14),
